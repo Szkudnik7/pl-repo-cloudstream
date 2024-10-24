@@ -20,10 +20,8 @@ open class EkinoProvider : MainAPI() {
     private suspend fun fetchDocument(url: String): Document? {
         return try {
             val response = app.get(url, headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"))
-            println("Fetched URL: $url with status code: ${response.statusCode}")
             response.document
         } catch (e: Exception) {
-            println("Error fetching document: ${e.message}")
             e.printStackTrace()
             null
         }
@@ -73,10 +71,10 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun load(url: String): LoadResponse {
         val document = fetchDocument(url) ?: return MovieLoadResponse("Error", url, name, TvType.Movie, "", "", null, "Unable to load")
-        
+
         val title = document.select("h1.title").text()
         val posterUrl = "https:" + document.select("#single-poster img").attr("src")
-        val plot = document.select(".descriptionMovie").text()
+        val plot = document.select(".description").text()
         val data = document.select("#link-list").outerHtml()
 
         return MovieLoadResponse(
