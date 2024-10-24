@@ -23,34 +23,38 @@ class CdaProvider : MainAPI() {
     private val interceptor = CloudflareKiller()
 
 override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-    val document = app.get(mainUrl, interceptor = interceptor).document
-    val lists = document.select(".owl-item article")
+    val document = fetchDocument(mainUrl) ?: return HomePageResponse(emptyList())
+    // Zmiana selektora na odpowiedni dla Twojego HTML
+    val lists = document.select(".item") // Selekcja elementów filmów
     val categories = ArrayList<HomePageList>()
 
-    // Sekcja dla filmów online, zgodnie z HTML-em strony
-     val title = document.select(".box_item h1").text()  // Można dynamicznie pobrać np. z nagłówka, tutaj ustalone na sztywno
-    val items = lists.map { i ->
-        val a = i.selectFirst("a")!!
-        val name = document.select(".items .item h2").text()  // Tytuł filmu
-        val href = a.attr("href")  // Link do filmu
-        val poster = i.select("img").attr("src")  // Plakat
-        val year = i.select(".data span").text().toIntOrNull()  // Rok produkcji
+    val title = "Gorące Filmy"
+    val items = lists.mapNotNull { item ->
+        // Wydobywanie danych z elementu filmu
+        val a = item.select("a").first() ?: return@mapNotNull null
+        val name = item.select(".tt").text() // Tytuł filmu
+        val href = a.attr("href") // Link do filmu
+        val poster = item.select("img").attr("src") // Plakat filmu
+        val year = item.select(".year").text().toIntOrNull() // Rok wydania
+        val description = item.select(".ttx").text() // Opis filmu
+        val rating = item.select(".imdb").text().substringAfter(" ").toDoubleOrNull() // Ocena
 
+        // Zwracanie obiektu MovieSearchResponse
         MovieSearchResponse(
             name,
-            properUrl(href)!!,
+            href,
             this.name,
             TvType.Movie,
-            properUrl(poster)!!,
+            poster,
             year,
-            null,
-            posterHeaders = interceptor.getCookieHeaders(mainUrl).toMap()
+            rating
         )
     }
 
     categories.add(HomePageList(title, items))
     return HomePageResponse(categories)
 }
+
     
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/wyszukaj?phrase=$query"
