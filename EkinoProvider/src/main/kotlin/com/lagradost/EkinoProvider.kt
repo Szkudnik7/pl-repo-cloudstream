@@ -9,7 +9,7 @@ import org.jsoup.Jsoup
 import org.jsoup.select.Elements
 
 open class EkinoProvider : MainAPI() {
-    override var mainUrl = "https://ekino-tv.pl"
+    override var mainUrl = "https://ekino-tv.pl/"
     override var name = "ekino-tv.pl"
     override var lang = "pl"
     override val hasMainPage = true
@@ -48,42 +48,37 @@ override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePage
     return HomePageResponse(categories)
 }
 
-override suspend fun search(query: String): List<SearchResponse> {
-    val url = "$mainUrl/search/qf/?q=$query"
-    val document = app.get(url).document
-    val lists = document.select("#advanced-search > div")
-    
-    val movies = lists[1].select(".movies-list-item")
-    val series = lists[3].select(".movies-list-item")
-    
-    if (movies.isEmpty() && series.isEmpty()) return ArrayList()
-    
-    fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
-        return items.mapNotNull { i ->
-            val href = i.selectFirst(".title > a")?.attr("href") ?: return@mapNotNull null
-            val img = i.selectFirst(".cover-list img")?.attr("src")?.replace("/thumb/", "/big/")
-            val name = i.selectFirst(".title > a")?.text() ?: return@mapNotNull null
-            val year = i.selectFirst(".info-categories")?.text()?.split("|")?.firstOrNull()?.trim()?.toIntOrNull()
-            val categories = i.select(".cates a").joinToString(", ") { it.text() }
-            
-            if (type == TvType.TvSeries) {
-                TvSeriesSearchResponse(
-                    name,
-                    href,
-                    this.name,
-                    type,
-                    img,
-                    year,
-                    categories
-                )
-            } else {
-                MovieSearchResponse(name, href, this.name, type, img, year, categories)
+
+    override suspend fun search(query: String): List<SearchResponse> {
+        val url = "$mainUrl/wyszukiwarka?phrase=$query"
+        val document = app.get(url).document
+        val lists = document.select("#advanced-search > div")
+        val movies = lists[1].select("div:not(.clearfix)")
+        val series = lists[3].select("div:not(.clearfix)")
+        if (movies.isEmpty() && series.isEmpty()) return ArrayList()
+        fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
+            return items.mapNotNull { i ->
+                val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
+                val img =
+                    i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
+                val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
+                if (type === TvType.TvSeries) {
+                    TvSeriesSearchResponse(
+                        name,
+                        href,
+                        this.name,
+                        type,
+                        img,
+                        null,
+                        null
+                    )
+                } else {
+                    MovieSearchResponse(name, href, this.name, type, img, null)
+                }
             }
         }
+        return getVideos(TvType.Movie, movies) + getVideos(TvType.TvSeries, series)
     }
-    
-    return getVideos(TvType.Movie, movies) + getVideos(TvType.TvSeries, series)
-}
 
     override suspend fun load(url: String): LoadResponse {
         val document = app.get(url).document
