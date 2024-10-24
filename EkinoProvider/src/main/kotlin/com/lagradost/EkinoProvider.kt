@@ -6,6 +6,7 @@ import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.Jsoup
+import org.jsoup.nodes.Document
 import org.jsoup.select.Elements
 
 open class EkinoProvider : MainAPI() {
@@ -19,15 +20,25 @@ open class EkinoProvider : MainAPI() {
         TvType.Movie
     )
 
+    private suspend fun fetchDocument(url: String): Document? {
+        return try {
+            val response = app.get(url, headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"))
+            response.document
+        } catch (e: Exception) {
+            // Log the exception for debugging
+            e.printStackTrace()
+            null
+        }
+    }
+
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val document = app.get(mainUrl).document
-        val lists = document.select(".swiper-slide") // Update this based on your HTML structure
+        val document = fetchDocument(mainUrl) ?: return HomePageResponse(emptyList())
+        val lists = document.select(".swiper-slide") // Adjust if needed
         val categories = ArrayList<HomePageList>()
 
-        // Assuming there might be a single category called "Nowości" (New Releases)
         val title = "Nowości"
-        val items = lists.map { item ->
-            val a = item.select("a").first() ?: return@map null
+        val items = lists.mapNotNull { item ->
+            val a = item.select("a").first() ?: return@mapNotNull null
             val name = a.attr("alt") // Title
             val href = a.attr("href") // Link
             val poster = item.select("img[src]").attr("src") // Poster
@@ -41,7 +52,7 @@ open class EkinoProvider : MainAPI() {
                 poster,
                 year
             )
-        }.filterNotNull()
+        }
 
         categories.add(HomePageList(title, items))
         return HomePageResponse(categories)
@@ -49,12 +60,12 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/wyszukiwarka?phrase=$query"
-        val document = app.get(url).document
+        val document = fetchDocument(url) ?: return emptyList()
         val lists = document.select("#advanced-search > div")
         val movies = lists[1].select("div:not(.clearfix)")
         val series = lists[3].select("div:not(.clearfix)")
 
-        if (movies.isEmpty() && series.isEmpty()) return ArrayList()
+        if (movies.isEmpty() && series.isEmpty()) return emptyList()
 
         fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
             return items.mapNotNull { i ->
@@ -82,7 +93,7 @@ open class EkinoProvider : MainAPI() {
     }
 
     override suspend fun load(url: String): LoadResponse {
-        val document = app.get(url).document
+        val document = fetchDocument(url) ?: return MovieLoadResponse("Error", url, name, TvType.Movie, "", "", null, "Unable to load")
         val documentTitle = document.select("title").text().trim()
 
         if (documentTitle.startsWith("Logowanie")) {
@@ -132,7 +143,7 @@ open class EkinoProvider : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         val document = if (data.startsWith("http"))
-            app.get(data).document.select("#link-list").first()
+            fetchDocument(data)?.select("#link-list")?.first()
         else Jsoup.parse(data)
 
         document?.select(".link-to-video")?.forEach { item ->
