@@ -71,10 +71,10 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun load(url: String): LoadResponse {
         val document = fetchDocument(url) ?: return MovieLoadResponse("Error", url, name, TvType.Movie, "", "", null, "Unable to load")
-
+        
         val title = document.select("h1.title").text()
         val posterUrl = "https:" + document.select("#single-poster img").attr("src")
-        val plot = document.select(".description").text()
+        val plot = document.select(".descriptionMovie").text()
         val data = document.select("#link-list").outerHtml()
 
         return MovieLoadResponse(
