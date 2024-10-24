@@ -24,16 +24,14 @@ class CdaProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
-        val lists = document.select(".box_item h1")
-        val categories = ArrayList<HomePageList>()
-        for (l in lists) {
-            val title = item.select(".box_item h1").text()
-            val items = l.select(".poster").map { i ->
-                val a = i.parent()!!
-                val name = a.attr("title")
-                val href = a.attr("href")
-                val poster = i.select("img[src]").attr("src")
-                val year = a.select(".year").text().toIntOrNull()
+        val title = document.select(".box_item h1").text()  // Można dynamicznie pobrać np. z nagłówka, tutaj ustalone na sztywno
+    val items = lists.map { i ->
+        val a = i.selectFirst("a")!!
+        val name = a.select(".data h3 a").text()  // Tytuł filmu
+        val name = document.select(".items .item h2").text()  // Tytuł filmu
+        val href = a.attr("href")  // Link do filmu
+        val poster = i.select("img").attr("src")  // Plakat
+        val year = i.select(".data span").text().toIntOrNull()  // Rok produkcji
                 MovieSearchResponse(
                     name,
                     href,
