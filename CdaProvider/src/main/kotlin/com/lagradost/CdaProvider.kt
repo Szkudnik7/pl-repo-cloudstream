@@ -27,7 +27,7 @@ class CdaProvider : MainAPI() {
         val lists = document.select(".item_1 items")
         val categories = ArrayList<HomePageList>()
         for (l in lists) {
-            val title = document.select(".box_item h1")
+            val title = item.select(".box_item h1").text()
             val items = l.select(".poster").map { i ->
                 val a = i.parent()!!
                 val name = a.attr("title")
