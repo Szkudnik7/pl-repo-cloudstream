@@ -19,29 +19,31 @@ open class EkinoProvider : MainAPI() {
         TvType.Movie
     )
 
-    override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePageResponse {
+    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
-        val lists = document.select(".item-list")
+        val lists = document.select(".swiper-slide") // Update this based on your HTML structure
         val categories = ArrayList<HomePageList>()
-        for (l in lists) {
-            val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim())
-            val items = l.select(".poster").map { i ->
-                val a = i.parent()!!
-                val name = a.attr("title")
-                val href = a.attr("href")
-                val poster = i.select("img[src]").attr("src")
-                val year = a.select(".year").text().toIntOrNull()
-                MovieSearchResponse(
-                    name,
-                    href,
-                    this.name,
-                    TvType.Movie,
-                    poster,
-                    year
-                )
-            }
-            categories.add(HomePageList(title, items))
-        }
+
+        // Assuming there might be a single category called "Nowości" (New Releases)
+        val title = "Nowości"
+        val items = lists.map { item ->
+            val a = item.select("a").first() ?: return@map null
+            val name = a.attr("alt") // Title
+            val href = a.attr("href") // Link
+            val poster = item.select("img[src]").attr("src") // Poster
+            val year = item.select(".m-more").text().split("|").firstOrNull()?.trim()?.toIntOrNull() // Year
+
+            MovieSearchResponse(
+                name,
+                href,
+                this.name,
+                TvType.Movie,
+                poster,
+                year
+            )
+        }.filterNotNull()
+
+        categories.add(HomePageList(title, items))
         return HomePageResponse(categories)
     }
 
@@ -51,13 +53,15 @@ open class EkinoProvider : MainAPI() {
         val lists = document.select("#advanced-search > div")
         val movies = lists[1].select("div:not(.clearfix)")
         val series = lists[3].select("div:not(.clearfix)")
+
         if (movies.isEmpty() && series.isEmpty()) return ArrayList()
+
         fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
             return items.mapNotNull { i ->
                 val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val img =
-                    i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
+                val img = i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
                 val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
+
                 if (type === TvType.TvSeries) {
                     TvSeriesSearchResponse(
                         name,
@@ -73,6 +77,7 @@ open class EkinoProvider : MainAPI() {
                 }
             }
         }
+
         return getVideos(TvType.Movie, movies) + getVideos(TvType.TvSeries, series)
     }
 
@@ -81,7 +86,7 @@ open class EkinoProvider : MainAPI() {
         val documentTitle = document.select("title").text().trim()
 
         if (documentTitle.startsWith("Logowanie")) {
-            throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape esit. If it is not please report it.")
+            throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape it. If it is not please report it.")
         }
 
         var title = document.select("span[itemprop=name]").text()
@@ -89,14 +94,17 @@ open class EkinoProvider : MainAPI() {
         val posterUrl = document.select("#single-poster > img").attr("src")
         val plot = document.select(".description").text()
         val episodesElements = document.select("#episode-list a[href]")
+
         if (episodesElements.isEmpty()) {
             return MovieLoadResponse(title, url, name, TvType.Movie, data, posterUrl, null, plot)
         }
+
         title = document.selectFirst(".info")?.parent()?.select("h2")?.text()!!
         val episodes = episodesElements.mapNotNull { episode ->
             val e = episode.text()
             val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(e) ?: return@mapNotNull null
             val eid = regex.groups
+
             Episode(
                 episode.attr("href"),
                 e.split("]")[1].trim(),
@@ -127,9 +135,9 @@ open class EkinoProvider : MainAPI() {
             app.get(data).document.select("#link-list").first()
         else Jsoup.parse(data)
 
-        document?.select(".link-to-video")?.apmap { item ->
+        document?.select(".link-to-video")?.forEach { item ->
             val decoded = base64Decode(item.select("a").attr("data-iframe"))
-            val link = tryParseJson<LinkElement>(decoded)?.src ?: return@apmap
+            val link = tryParseJson<LinkElement>(decoded)?.src ?: return@forEach
             loadExtractor(link, subtitleCallback, callback)
         }
         return true
