@@ -22,31 +22,29 @@ class CdaProvider : MainAPI() {
 
     private val interceptor = CloudflareKiller()
 
-    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val document = fetchDocument(mainUrl) ?: return HomePageResponse(emptyList())
-        val lists = document.select(".item")
+    override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePageResponse {
+        val document = app.get(mainUrl).document
+        val lists = document.select(".item-list")
         val categories = ArrayList<HomePageList>()
-
-        val title = document.select(".box_item h1")
-        val items = lists.mapNotNull { item ->
-            val a = item.select("a").first() ?: return@mapNotNull null
-            val name = item.select(".title a").text()
-            val href = mainUrl + a.attr(".buttonprch:visited")
-            val poster = "https:" + item.select("img[src]").attr("src")
-            val year = item.select(".cates").text().split("|").firstOrNull()?.trim()?.toIntOrNull()
-            val description = item.select(".movieDesc").text()
-
-            MovieSearchResponse(
-                name,
-                href,
-                this.name,
-                TvType.Movie,
-                poster,
-                year
-            )
+        for (l in lists) {
+            val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim())
+            val items = l.select(".poster").map { i ->
+                val a = i.parent()!!
+                val name = a.attr("title")
+                val href = a.attr("href")
+                val poster = i.select("img[src]").attr("src")
+                val year = a.select(".year").text().toIntOrNull()
+                MovieSearchResponse(
+                    name,
+                    href,
+                    this.name,
+                    TvType.Movie,
+                    poster,
+                    year
+                )
+            }
+            categories.add(HomePageList(title, items))
         }
-
-        categories.add(HomePageList(title, items))
         return HomePageResponse(categories)
     }
 
