@@ -23,18 +23,18 @@ class VizjerProvider : MainAPI() {
     private val interceptor = CloudflareKiller()
 
 override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-    val document = app.get(mainUrl, interceptor = interceptor).document
-    val lists = document.select(".owl-item article")
+    val document = Jsoup.parse(File("/mnt/data/New Text Document.txt"), "UTF-8")
+    val lists = document.select("article.item.movies") // Zmiana selektora na konkretny
     val categories = ArrayList<HomePageList>()
 
-    // Sekcja dla filmów online, zgodnie z HTML-em strony
-    val title = "Filmy online"  // Można dynamicznie pobrać np. z nagłówka, tutaj ustalone na sztywno
+    val title = "Filmy online"
     val items = lists.map { i ->
         val a = i.selectFirst("a")!!
-        val name = a.select(".data h3 a").text()  // Tytuł filmu
-        val href = a.attr("href")  // Link do filmu
-        val poster = i.select("img").attr("src")  // Plakat
-        val year = i.select(".data span").text().toIntOrNull()  // Rok produkcji
+        val name = a.text() // Tytuł filmu
+        val href = a.attr("href") // Link do filmu
+        val poster = i.selectFirst(".poster img").attr("src") // Plakat
+        val yearText = i.selectFirst(".data span")?.text() ?: ""
+        val year = extractYear(yearText) // Funkcja do wyciągania roku, np. z "Oct. 11, 2024"
 
         MovieSearchResponse(
             name,
@@ -52,7 +52,11 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
     return HomePageResponse(categories)
 }
 
-
+// Funkcja do ekstrakcji roku z tekstu
+private fun extractYear(text: String): Int? {
+    return text.split(" ").lastOrNull()?.toIntOrNull() // Zakłada, że rok jest ostatnim słowem
+}
+    
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/wyszukaj?phrase=$query"
         val document = app.get(url, interceptor = interceptor).document
