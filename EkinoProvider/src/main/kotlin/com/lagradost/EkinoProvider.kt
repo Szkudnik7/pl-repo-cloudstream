@@ -97,7 +97,7 @@ open class EkinoProvider : MainAPI() {
             fetchDocument(data)?.select("#link-list")?.first()
         else Jsoup.parse(data)
 
-        document?.select(".link-to-video a")?.forEach { item ->
+        document?.select("a:-webkit-any-link")?.forEach { item ->
             val videoUrl = item.attr("href")
             loadExtractor(videoUrl, subtitleCallback, callback)
         }
