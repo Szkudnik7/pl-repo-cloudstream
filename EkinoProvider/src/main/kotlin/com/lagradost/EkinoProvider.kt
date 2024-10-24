@@ -2,12 +2,10 @@ package com.lagradost
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.*
-import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
-import org.jsoup.select.Elements
 
 open class EkinoProvider : MainAPI() {
     override var mainUrl = "https://ekino-tv.pl/"
@@ -56,7 +54,7 @@ open class EkinoProvider : MainAPI() {
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val url = "$ekino-tv.pl//wyszukiwarka?phrase=$query"
+        val url = "$mainUrl/wyszukiwarka?phrase=$query"
         val document = fetchDocument(url) ?: return emptyList()
         val lists = document.select(".mostPopular .list li")
 
@@ -71,7 +69,7 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun load(url: String): LoadResponse {
         val document = fetchDocument(url) ?: return MovieLoadResponse("Error", url, name, TvType.Movie, "", "", null, "Unable to load")
-        
+
         val title = document.select("h1.title").text()
         val posterUrl = "https:" + document.select("#single-poster img").attr("src")
         val plot = document.select(".descriptionMovie").text()
@@ -99,7 +97,7 @@ open class EkinoProvider : MainAPI() {
             fetchDocument(data)?.select("#link-list")?.first()
         else Jsoup.parse(data)
 
-        document?.select(".buttonprch:visited")?.forEach { item ->
+        document?.select(".link-to-video a")?.forEach { item ->
             val videoUrl = item.attr("href")
             loadExtractor(videoUrl, subtitleCallback, callback)
         }
