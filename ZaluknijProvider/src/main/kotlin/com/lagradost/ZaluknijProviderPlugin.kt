@@ -8,7 +8,6 @@ import android.content.Context
 @CloudstreamPlugin
 class ZaluknijProviderPlugin: Plugin() {
     override fun load(context: Context) {
-        registerMainAPI(Zaluknij1Provider())
         registerMainAPI(ZaluknijProvider())
     }
 }
