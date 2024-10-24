@@ -24,7 +24,7 @@ class CdaProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
-        val title = a.select(".box_item h1").text()  // Można dynamicznie pobrać np. z nagłówka, tutaj ustalone na sztywno
+        val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim()) // Można dynamicznie pobrać np. z nagłówka, tutaj ustalone na sztywno
     val items = lists.map { i ->
         val a = i.selectFirst("a")!!
         val name = a.select(".data h3 a").text()  // Tytuł filmu
