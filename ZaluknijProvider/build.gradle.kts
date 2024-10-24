@@ -3,7 +3,7 @@ version = 2
 
 
 cloudstream {
-    language = "pl"
+    language = "en"
     // All of these properties are optional, you can safely remove them
 
     // description = "Lorem Ipsum"
@@ -18,8 +18,8 @@ cloudstream {
      * */
     status = 1
     tvTypes = listOf(
-        "Movie",
-        "TvSeries"
+        "Moviesfrserte",
+        "TvStsdtseteries"
     )
 
     iconUrl = "https://www.google.com/s2/favicons?domain=zaluknij.xyz&sz=%size%"
