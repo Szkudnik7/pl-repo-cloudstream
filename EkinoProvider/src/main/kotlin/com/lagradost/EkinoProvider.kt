@@ -56,7 +56,7 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun search(query: String): List<SearchResponse> {
         // Wykorzystaj adres do wyszukiwania z formularza
-        val url = "$mainUrl/search/qf"
+        val url = "$mainUrl/search/qf/?q=$query"
         val params = mapOf("q" to query)
         
         // Wykonaj zapytanie POST
