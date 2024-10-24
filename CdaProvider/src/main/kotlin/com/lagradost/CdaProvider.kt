@@ -22,34 +22,36 @@ class CdaProvider : MainAPI() {
 
     private val interceptor = CloudflareKiller()
 
-    override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePageResponse {
-        val document = app.get(mainUrl, interceptor = interceptor).document
-        val lists = document.select(".item-list")
-        val categories = ArrayList<HomePageList>()
-        for (l in lists) {
-            val title = capitalizeString(l.parent()!!.select("h3").text().lowercase())
-            val items = l.select(".poster").map { i ->
-                val a = i.parent()!!
-                val name = a.attr("title")
-                val href = a.attr("href")
-                val poster = i.select("img[src]").attr("src")
-                val year = a.select(".year").text().toIntOrNull()
-                MovieSearchResponse(
-                    name,
-                    properUrl(href)!!,
-                    this.name,
-                    TvType.Movie,
-                    properUrl(poster)!!,
-                    year,
-                    null,
-                    posterHeaders = interceptor.getCookieHeaders(mainUrl).toMap()
-                )
-            }
-            categories.add(HomePageList(title, items))
-        }
-        return HomePageResponse(categories)
+override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+    val document = app.get(mainUrl, interceptor = interceptor).document
+    val lists = document.select(".owl-item article")
+    val categories = ArrayList<HomePageList>()
+
+    // Sekcja dla filmów online, zgodnie z HTML-em strony
+    val title = "Filmy online"  // Można dynamicznie pobrać np. z nagłówka, tutaj ustalone na sztywno
+    val items = lists.map { i ->
+        val a = i.selectFirst("a")!!
+        val name = a.select(".data h3 a").text()  // Tytuł filmu
+        val href = a.attr("href")  // Link do filmu
+        val poster = i.select("img").attr("src")  // Plakat
+        val year = i.select(".data span").text().toIntOrNull()  // Rok produkcji
+
+        MovieSearchResponse(
+            name,
+            properUrl(href)!!,
+            this.name,
+            TvType.Movie,
+            properUrl(poster)!!,
+            year,
+            null,
+            posterHeaders = interceptor.getCookieHeaders(mainUrl).toMap()
+        )
     }
 
+    categories.add(HomePageList(title, items))
+    return HomePageResponse(categories)
+}
+    
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/wyszukaj?phrase=$query"
         val document = app.get(url, interceptor = interceptor).document
