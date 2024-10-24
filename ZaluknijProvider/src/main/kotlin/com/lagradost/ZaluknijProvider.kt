@@ -86,7 +86,7 @@ open class ZaluknijProvider : MainAPI() {
         val documentTitle = document.select("title").text().trim()
 
         if (documentTitle.startsWith("Logowanie")) {
-            throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape it. If it is not please report it.")
+            throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape esit. If it is not please report it.")
         }
 
         var title = document.select("span[itemprop=name]").text()
