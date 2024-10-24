@@ -36,7 +36,7 @@ open class EkinoProvider : MainAPI() {
         val items = lists.mapNotNull { item ->
             val a = item.select("a").first() ?: return@mapNotNull null
             val name = item.select(".title a").text()
-            val href = mainUrl + a.attr(".buttonprch:visited")
+            val href = mainUrl + a.attr("href")
             val poster = "https:" + item.select("img[src]").attr("src")
             val year = item.select(".cates").text().split("|").firstOrNull()?.trim()?.toIntOrNull()
             val description = item.select(".movieDesc").text()
@@ -56,7 +56,7 @@ open class EkinoProvider : MainAPI() {
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val url = "$mainUrl/wyszukiwarka?phrase=$query"
+        val url = "$ekino-tv.pl//wyszukiwarka?phrase=$query"
         val document = fetchDocument(url) ?: return emptyList()
         val lists = document.select(".mostPopular .list li")
 
@@ -99,7 +99,7 @@ open class EkinoProvider : MainAPI() {
             fetchDocument(data)?.select("#link-list")?.first()
         else Jsoup.parse(data)
 
-        document?.select(".link-to-video a")?.forEach { item ->
+        document?.select(".buttonprch:visited")?.forEach { item ->
             val videoUrl = item.attr("href")
             loadExtractor(videoUrl, subtitleCallback, callback)
         }
