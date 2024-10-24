@@ -54,9 +54,9 @@ open class EkinoProvider : MainAPI() {
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val url = "$mainUrl/wyszukiwarka?phrase=$query"
+        val url = "$mainUrl/wyszukiwarka?phrase=${query.replace(" ", "+")}"
         val document = fetchDocument(url) ?: return emptyList()
-        val lists = document.select(".mostPopular .list li")
+        val lists = document.select(".mostPopular .list li") // Upewnij się, że ten selektor jest poprawny.
 
         return lists.mapNotNull { item ->
             val href = item.select("a").attr("href")
