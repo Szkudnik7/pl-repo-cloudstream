@@ -51,11 +51,6 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
     categories.add(HomePageList(title, items))
     return HomePageResponse(categories)
 }
-
-// Funkcja do ekstrakcji roku z tekstu
-private fun extractYear(text: String): Int? {
-    return text.split(" ").lastOrNull()?.toIntOrNull() // Zakłada, że rok jest ostatnim słowem
-}
     
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/wyszukaj?phrase=$query"
