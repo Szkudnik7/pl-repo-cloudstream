@@ -71,7 +71,7 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun load(url: String): LoadResponse {
         val document = fetchDocument(url) ?: return MovieLoadResponse("Error", url, name, TvType.Movie, "", "", null, "Unable to load")
-        
+
         val title = document.select("h1.title").text()
         val posterUrl = "https:" + document.select("#single-poster img").attr("src")
         val plot = document.select(".descriptionMovie").text()
@@ -98,6 +98,13 @@ open class EkinoProvider : MainAPI() {
         val document = if (data.startsWith("http"))
             fetchDocument(data)?.select("#link-list")?.first()
         else Jsoup.parse(data)
+
+        // Obsługuje linki przekierowujące
+        document?.select("div.warning-msg a")?.forEach { item ->
+            val redirectUrl = item.attr("href")
+            // Możesz dodać logikę, aby załadować ten link, jeśli to konieczne
+            loadExtractor(redirectUrl, subtitleCallback, callback)
+        }
 
         document?.select(".link-to-video a")?.forEach { item ->
             val videoUrl = item.attr("href")
