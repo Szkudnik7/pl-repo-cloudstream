@@ -22,35 +22,33 @@ class CdaProvider : MainAPI() {
 
     private val interceptor = CloudflareKiller()
 
-override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-    val document = app.get(mainUrl, interceptor = interceptor).document
-    val lists = document.select(".owl-item article")
-    val categories = ArrayList<HomePageList>()
+    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        val document = fetchDocument(mainUrl) ?: return HomePageResponse(emptyList())
+        val lists = document.select(".mostPopular .list li")
+        val categories = ArrayList<HomePageList>()
 
-    // Sekcja dla filmów online, zgodnie z HTML-em strony
-    val title = document.select(".box_item h1")  // Można dynamicznie pobrać np. z nagłówka, tutaj ustalone na sztywno
-    val items = lists.map { i ->
-        val a = i.selectFirst("a")!!
-        val name = a.select(".data h3 a").text()  // Tytuł filmu
-        val href = a.attr("href")  // Link do filmu
-        val poster = i.select("img").attr("src")  // Plakat
-        val year = i.select(".data span").text().toIntOrNull()  // Rok produkcji
+        val title = "Gorące Filmy"
+        val items = lists.mapNotNull { item ->
+            val a = item.select("a").first() ?: return@mapNotNull null
+            val name = item.select(".title a").text()
+            val href = mainUrl + a.attr(".buttonprch:visited")
+            val poster = "https:" + item.select("img[src]").attr("src")
+            val year = item.select(".cates").text().split("|").firstOrNull()?.trim()?.toIntOrNull()
+            val description = item.select(".movieDesc").text()
 
-        MovieSearchResponse(
-            name,
-            properUrl(href)!!,
-            this.name,
-            TvType.Movie,
-            properUrl(poster)!!,
-            year,
-            null,
-            posterHeaders = interceptor.getCookieHeaders(mainUrl).toMap()
-        )
+            MovieSearchResponse(
+                name,
+                href,
+                this.name,
+                TvType.Movie,
+                poster,
+                year
+            )
+        }
+
+        categories.add(HomePageList(title, items))
+        return HomePageResponse(categories)
     }
-
-    categories.add(HomePageList(title, items))
-    return HomePageResponse(categories)
-}
 
     
     override suspend fun search(query: String): List<SearchResponse> {
