@@ -6,6 +6,7 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 
 open class EkinoProvider : MainAPI() {
     override var mainUrl = "https://ekino-tv.pl/"
@@ -54,9 +55,14 @@ open class EkinoProvider : MainAPI() {
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val url = "$mainUrl/wyszukiwarka?phrase=${query.replace(" ", "+")}"
-        val document = fetchDocument(url) ?: return emptyList()
-        val lists = document.select(".mostPopular .list li") // Upewnij się, że ten selektor jest poprawny.
+        // Wykorzystaj adres do wyszukiwania z formularza
+        val url = "$mainUrl/search/qf"
+        val params = mapOf("q" to query)
+        
+        // Wykonaj zapytanie POST
+        val response = app.post(url, params)
+        val document = response.document ?: return emptyList()
+        val lists = document.select("#mres .list li") // Sprawdź poprawność selektora
 
         return lists.mapNotNull { item ->
             val href = item.select("a").attr("href")
