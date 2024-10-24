@@ -36,7 +36,7 @@ open class EkinoProvider : MainAPI() {
         val items = lists.mapNotNull { item ->
             val a = item.select("a").first() ?: return@mapNotNull null
             val name = item.select(".title a").text()
-            val href = mainUrl + a.attr("href")
+            val href = mainUrl + a.attr(".buttonprch:visited")
             val poster = "https:" + item.select("img[src]").attr("src")
             val year = item.select(".cates").text().split("|").firstOrNull()?.trim()?.toIntOrNull()
             val description = item.select(".movieDesc").text()
