@@ -57,19 +57,35 @@ open class EkinoProvider : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> {
         // Wykorzystaj adres do wyszukiwania z formularza
         val url = "$mainUrl/search/qf/?q=$query"
-        // Wykonaj zapytanie POST
-        val response = app.post(url, params)
-        val document = response.document ?: return emptyList()
-        val lists = document.select("#mres .list li") // Sprawdź poprawność selektora
-
-        return lists.mapNotNull { item ->
-            val href = item.select("a").attr("href")
-            val img = "https:" + item.select("img[src]").attr("src")
-            val name = item.select(".title a").text()
-
-            MovieSearchResponse(name, href, this.name, TvType.Movie, img, null)
+        val document = app.get(url).document
+        val lists = document.select("body > div.mainWrap > div.col-md-12.movie-wrap > div:nth-child(1)")
+        val movies = lists[1].select("div:not(.clearfix)")
+        val series = lists[3].select("div:not(.clearfix)")
+        if (movies.isEmpty() && series.isEmpty()) return ArrayList()
+        fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
+            return items.mapNotNull { i ->
+                val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
+                val img =
+                    i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
+                val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
+                if (type === TvType.TvSeries) {
+                    TvSeriesSearchResponse(
+                        name,
+                        href,
+                        this.name,
+                        type,
+                        img,
+                        null,
+                        null
+                    )
+                } else {
+                    MovieSearchResponse(name, href, this.name, type, img, null)
+                }
+            }
         }
+        return getVideos(TvType.Movie, movies) + getVideos(TvType.TvSeries, series)
     }
+
 
     override suspend fun load(url: String): LoadResponse {
         val document = fetchDocument(url) ?: return MovieLoadResponse("Error", url, name, TvType.Movie, "", "", null, "Unable to load")
