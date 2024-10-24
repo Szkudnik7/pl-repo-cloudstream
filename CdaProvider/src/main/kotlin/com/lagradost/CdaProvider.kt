@@ -24,10 +24,10 @@ class CdaProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document = fetchDocument(mainUrl) ?: return HomePageResponse(emptyList())
-        val lists = document.select(".mostPopular .list li")
+        val lists = document.select(".item")
         val categories = ArrayList<HomePageList>()
 
-        val title = "Gorące Filmy"
+        val title = document.select(".box_item h1")
         val items = lists.mapNotNull { item ->
             val a = item.select("a").first() ?: return@mapNotNull null
             val name = item.select(".title a").text()
