@@ -24,7 +24,7 @@ class CdaProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
-        val lists = document.select(".item_1 items")
+        val lists = document.select(".box_item h1")
         val categories = ArrayList<HomePageList>()
         for (l in lists) {
             val title = item.select(".box_item h1").text()
