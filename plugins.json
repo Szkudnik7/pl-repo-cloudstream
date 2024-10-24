@@ -1,0 +1,59 @@
+[
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=ekino-tv.pl&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/AuraMc-ext/Polskie-repozytorium",
+        "fileSize": 10873,
+        "status": 1,
+        "language": "pl",
+        "authors": [
+            "Auramc"
+        ],
+        "tvTypes": [
+            "Movies",
+            "TvSeries"
+        ],
+        "version": 2,
+        "internalName": "EkinoProvider",
+        "url": "https://raw.githubusercontent.com/AuraMc-ext/Polskie-repozytorium/builds/EkinoProvider.cs3",
+        "name": "EkinoProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=filman.cc&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/AuraMc-ext/Polskie-repozytorium",
+        "fileSize": 8409,
+        "status": 1,
+        "language": "pl",
+        "authors": [
+            
+        ],
+        "tvTypes": [
+            "TvSeries",
+            "Movie"
+        ],
+        "version": 2,
+        "internalName": "FilmanProvider",
+        "url": "https://raw.githubusercontent.com/AuraMc-ext/Polskie-repozytorium/builds/FilmanProvider.cs3",
+        "name": "FilmanProvider"
+    },
+    {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=zaluknij.xyz&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/AuraMc-ext/Polskie-repozytorium",
+        "fileSize": 12257,
+        "status": 1,
+        "language": "pl",
+        "authors": [
+            "Auramc"
+        ],
+        "tvTypes": [
+            "Movies",
+            "TvSeries"
+        ],
+        "version": 2,
+        "internalName": "ZaluknijProvider",
+        "url": "https://raw.githubusercontent.com/AuraMc-ext/Polskie-repozytorium/builds/ZaluknijProvider.cs3",
+        "name": "ZaluknijProvider"
+    }
+]
