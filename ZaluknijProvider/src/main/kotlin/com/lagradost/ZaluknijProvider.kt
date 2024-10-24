@@ -15,7 +15,7 @@ class Zaluknij1Provider : ZaluknijProvider() {
 
 open class ZaluknijProvider : MainAPI() {
     override var mainUrl = "https://zaluknij.cc/"
-    override var name = "Zaluknij.cc"
+    override var name = "Zaluesgsegsdgknij.cc"
     override var lang = "pl"
     override val hasMainPage = true
     override val usesWebView = true
