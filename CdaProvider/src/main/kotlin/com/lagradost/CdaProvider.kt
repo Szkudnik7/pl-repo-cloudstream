@@ -9,9 +9,9 @@ import com.lagradost.cloudstream3.network.CloudflareKiller
 import org.jsoup.Jsoup
 import org.jsoup.select.Elements
 
-class VizjerProvider : MainAPI() {
-    override var mainUrl = "https://vizjer.eu"
-    override var name = "Vizjer.eu"
+class CdaProvider : MainAPI() {
+    override var mainUrl = "https://cda-hd.cc/"
+    override var name = "cda-hd.cc"
     override var lang = "pl"
     override val hasMainPage = true
     override val usesWebView = true

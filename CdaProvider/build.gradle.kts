@@ -22,5 +22,5 @@ cloudstream {
         "TvSeries"
     )
 
-    iconUrl = "https://www.google.com/s2/favicons?domain=vizjer.eu&sz=%size%"
+    iconUrl = "https://www.google.com/s2/favicons?domain=cda-hd.cc&sz=%size%"
 }
