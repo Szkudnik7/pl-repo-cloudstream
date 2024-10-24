@@ -28,7 +28,7 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
     val categories = ArrayList<HomePageList>()
 
     // Sekcja dla filmów online, zgodnie z HTML-em strony
-    val title = "Filmy online"  // Można dynamicznie pobrać np. z nagłówka, tutaj ustalone na sztywno
+     val title = document.select(".box_item h1").text()  // Można dynamicznie pobrać np. z nagłówka, tutaj ustalone na sztywno
     val items = lists.map { i ->
         val a = i.selectFirst("a")!!
         val name = a.select(".data h3 a").text()  // Tytuł filmu
