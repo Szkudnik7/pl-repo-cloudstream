@@ -22,7 +22,7 @@ open class EkinoProvider : MainAPI() {
 
     private suspend fun fetchDocument(url: String): Document? {
         return try {
-            val response = app.get(url, headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"))
+            val response = app.get(url, headers = mapOf("User-Agent" to "Mozilla/5.0"))
             response.document
         } catch (e: Exception) {
             e.printStackTrace()
@@ -43,7 +43,7 @@ open class EkinoProvider : MainAPI() {
 
             MovieSearchResponse(
                 name = name,
-                url = href,
+                url = mainUrl + href,
                 apiName = this.name,
                 type = TvType.Movie,
                 posterUrl = poster,
@@ -67,7 +67,7 @@ open class EkinoProvider : MainAPI() {
 
             MovieSearchResponse(
                 name = name,
-                url = href,
+                url = mainUrl + href,
                 apiName = this.name,
                 type = TvType.Movie,
                 posterUrl = img,
@@ -87,13 +87,7 @@ open class EkinoProvider : MainAPI() {
             year = null,
             plot = "Unable to load"
         )
-        val documentTitle = document.select("title").text().trim()
-
-        if (documentTitle.startsWith("Logowanie")) {
-            throw RuntimeException("Strona wymaga zalogowania się, nie można kontynuować.")
-        }
-
-        var title = document.select(".scope_right .title").text()
+        val title = document.select(".scope_right .title").text()
         val plot = document.select(".movieDesc").text()
         val posterUrl = document.select(".scope_left img").attr("src")
         val episodesElements = document.select("#episode-list a[href]")
@@ -111,19 +105,19 @@ open class EkinoProvider : MainAPI() {
             )
         }
 
-        title = document.selectFirst(".scope_right .title")?.text() ?: "Nieznany tytuł"
         val episodes = episodesElements.mapNotNull { episode ->
             val e = episode.text()
             val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(e) ?: return@mapNotNull null
-            val eid = regex.groups
+            val season = regex.groupValues[1].toIntOrNull()
+            val episodeNumber = regex.groupValues[2].toIntOrNull()
 
             Episode(
-                url = episode.attr("href"),
+                url = mainUrl + episode.attr("href"),
                 name = e.split("]")[1].trim(),
-                season = eid[1]?.value?.toInt(),
-                episode = eid[2]?.value?.toInt(),
+                season = season,
+                episode = episodeNumber
             )
-        }.toMutableList()
+        }
 
         return TvSeriesLoadResponse(
             name = title,
