@@ -41,14 +41,16 @@ open class EkinoProvider : MainAPI() {
             val href = item.attr("href")
             val poster = item.select("img").attr("src")
 
-            MovieSearchResponse(
-                name = name,
-                url = mainUrl + href,
-                apiName = this.name,
-                type = TvType.Movie,
-                posterUrl = poster,
-                year = null
-            )
+            if (name.isNotEmpty() && href.isNotEmpty() && poster.isNotEmpty()) {
+                MovieSearchResponse(
+                    name = name,
+                    url = mainUrl + href,
+                    apiName = this.name,
+                    type = TvType.Movie,
+                    posterUrl = poster,
+                    year = null
+                )
+            } else null
         }
 
         categories.add(HomePageList(title, items))
@@ -65,14 +67,16 @@ open class EkinoProvider : MainAPI() {
             val img = result.select("img").attr("src")
             val name = result.attr("title")
 
-            MovieSearchResponse(
-                name = name,
-                url = mainUrl + href,
-                apiName = this.name,
-                type = TvType.Movie,
-                posterUrl = img,
-                year = null
-            )
+            if (name.isNotEmpty() && href.isNotEmpty() && img.isNotEmpty()) {
+                MovieSearchResponse(
+                    name = name,
+                    url = mainUrl + href,
+                    apiName = this.name,
+                    type = TvType.Movie,
+                    posterUrl = img,
+                    year = null
+                )
+            } else null
         }
     }
 
@@ -87,9 +91,11 @@ open class EkinoProvider : MainAPI() {
             year = null,
             plot = "Unable to load"
         )
-        val title = document.select(".scope_right .title").text()
-        val plot = document.select(".movieDesc").text()
-        val posterUrl = document.select(".scope_left img").attr("src")
+
+        // Ensure these selectors match the current website structure
+        val title = document.select(".scope_right .title").text().ifEmpty { "Unknown Title" }
+        val plot = document.select(".movieDesc").text().ifEmpty { "No description available." }
+        val posterUrl = document.select(".scope_left img").attr("src").ifEmpty { "" }
         val episodesElements = document.select("#episode-list a[href]")
 
         if (episodesElements.isEmpty()) {
@@ -111,12 +117,14 @@ open class EkinoProvider : MainAPI() {
             val season = regex.groupValues[1].toIntOrNull()
             val episodeNumber = regex.groupValues[2].toIntOrNull()
 
-            Episode(
-                url = mainUrl + episode.attr("href"),
-                name = e.split("]")[1].trim(),
-                season = season,
-                episode = episodeNumber
-            )
+            if (season != null && episodeNumber != null) {
+                Episode(
+                    url = mainUrl + episode.attr("href"),
+                    name = e.split("]")[1].trim(),
+                    season = season,
+                    episode = episodeNumber
+                )
+            } else null
         }
 
         return TvSeriesLoadResponse(
@@ -137,9 +145,11 @@ open class EkinoProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val document = if (data.startsWith("http"))
+        val document = if (data.startsWith("http")) {
             fetchDocument(data)?.select("#link-list")?.first()
-        else Jsoup.parse(data)
+        } else {
+            Jsoup.parse(data)
+        }
 
         document?.select(".link-to-video")?.forEach { item ->
             val decoded = base64Decode(item.select("a").attr("data-iframe"))
