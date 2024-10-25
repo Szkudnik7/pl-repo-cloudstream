@@ -49,12 +49,11 @@ open class EkinoProvider : MainAPI() {
         val url = "$mainUrl/wyszukiwarka?phrase=$query"
         val document = app.get(url).document
         val lists = document.select("#advanced-search > div")
-        val movies = lists[1].select("div:not(.clearfix)")
-        val series = lists[3].select("div:not(.clearfix)")
+        val movies = lists[1].select("class")
         if (movies.isEmpty() && series.isEmpty()) return ArrayList()
         fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
             return items.mapNotNull { i ->
-                val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
+                val href = i.selectFirst("a")?.attr("class") ?: return@mapNotNull null
                 val img =
                     i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
                 val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
