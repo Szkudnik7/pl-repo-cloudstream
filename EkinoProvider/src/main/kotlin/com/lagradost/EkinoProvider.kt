@@ -39,9 +39,9 @@ open class EkinoProvider : MainAPI() {
         val title = "Nowości"
         val items = lists.mapNotNull { item ->
             val a = item.select("a").first() ?: return@mapNotNull null
-            val name = a.attr(".title") // Title
-            val href = a.attr("span.blue") // Link
-            val poster = item.select("img[src]").attr("src") // Poster
+            val name = a.attr(".mainWrap") // Title
+            val href = a.attr("href") // Link
+            val poster = item.select(".scope_left").attr("src") // Poster
             val year = item.select(".m-more").text().split("|").firstOrNull()?.trim()?.toIntOrNull() // Year
 
             MovieSearchResponse(
