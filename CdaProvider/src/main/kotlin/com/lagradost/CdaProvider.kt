@@ -22,9 +22,9 @@ class CdaProvider : MainAPI() {
 
     private val interceptor = CloudflareKiller()
 
-override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePageResponse {
+override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
     // Fetch the HTML document from the live webpage
-    val document = app.get(mainUrl).document
+    val document = app.get(mainUrl, interceptor = interceptor).document
 
     // Select the container with items from the webpage
     val lists = document.select(".item-list")
@@ -54,9 +54,6 @@ override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePage
     }
     return HomePageResponse(categories)
 }
-
-
-
     
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/wyszukaj?phrase=$query"
