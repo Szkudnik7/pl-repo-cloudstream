@@ -35,7 +35,6 @@ class EkinoProvider : MainAPI() {
                 val href = a.attr("href")
                 val poster = i.select("img[src]").attr("src")
                 val year = a.select(".year").text().toIntOrNull()
-                val banner = a.select(".banner-selector").attr("src") // Upewnij się, że selektor jest poprawny
 
                 MovieSearchResponse(
                     name,
@@ -43,8 +42,7 @@ class EkinoProvider : MainAPI() {
                     this.name,
                     TvType.Movie,
                     poster,
-                    year,
-                    properUrl(banner) // Dodaj baner do odpowiedzi
+                    year
                 )
             }
             categories.add(HomePageList(title, items))
@@ -65,7 +63,6 @@ class EkinoProvider : MainAPI() {
             val href = item.selectFirst("a")?.attr("href") ?: return@mapNotNull null
             val img = item.selectFirst("img[src]")?.attr("src")
             val name = item.selectFirst(".title")?.text() ?: return@mapNotNull null
-            val banner = item.selectFirst(".banner-selector")?.attr("src") // Upewnij się, że selektor jest poprawny
 
             MovieSearchResponse(
                 name,
@@ -73,8 +70,7 @@ class EkinoProvider : MainAPI() {
                 this.name,
                 TvType.Movie,
                 properUrl(img)!!,
-                null,
-                properUrl(banner) // Dodaj baner do odpowiedzi
+                null
             )
         }
     }
@@ -90,12 +86,11 @@ class EkinoProvider : MainAPI() {
         val title = document.select("span[itemprop=name]").text()
         val data = document.select("#link-list").outerHtml()
         val posterUrl = document.select("#single-poster > img").attr("src")
-        val bannerUrl = document.select(".banner-selector").attr("src") // Upewnij się, że selektor jest poprawny
         val plot = document.select(".description").text()
         val episodesElements = document.select("#episode-list a[href]")
 
         if (episodesElements.isEmpty()) {
-            return MovieLoadResponse(title, properUrl(url)!!, name, TvType.Movie, data, properUrl(posterUrl)!!, properUrl(bannerUrl)!!, plot)
+            return MovieLoadResponse(title, properUrl(url)!!, name, TvType.Movie, data, properUrl(posterUrl)!!, plot)
         }
 
         val episodes = episodesElements.mapNotNull { episode ->
@@ -117,7 +112,6 @@ class EkinoProvider : MainAPI() {
             TvType.TvSeries,
             episodes,
             properUrl(posterUrl)!!,
-            properUrl(bannerUrl)!!, // Dodaj baner do odpowiedzi
             plot
         )
     }
@@ -164,8 +158,7 @@ data class MovieSearchResponse(
     val provider: String,
     val type: TvType,
     val posterUrl: String,
-    val year: Int?,
-    val bannerUrl: String? // Dodano pole na baner
+    val year: Int?
 )
 
 data class MovieLoadResponse(
@@ -175,7 +168,6 @@ data class MovieLoadResponse(
     val type: TvType,
     val data: String,
     val posterUrl: String,
-    val bannerUrl: String, // Dodano pole na baner
     val plot: String
 )
 
@@ -186,6 +178,5 @@ data class TvSeriesLoadResponse(
     val type: TvType,
     val episodes: List<Episode>,
     val posterUrl: String,
-    val bannerUrl: String, // Dodano pole na baner
     val plot: String
 )
