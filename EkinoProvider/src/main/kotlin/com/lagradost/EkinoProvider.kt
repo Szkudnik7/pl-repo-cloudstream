@@ -22,39 +22,39 @@ class EkinoProvider : MainAPI() {
 
     private val interceptor = CloudflareKiller()
 
-override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-    // Fetch the HTML document from the live webpage
-    val document = app.get(mainUrl, interceptor = interceptor).document
+    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        // Fetch the HTML document from the live webpage
+        val document = app.get(mainUrl, interceptor = interceptor).document
 
-    // Select the container with items from the webpage
-    val lists = document.select("mostPopular")
-    val categories = ArrayList<HomePageList>()
-    
-    // Iterate over the selected items to extract details
-    for (l in lists) {
-        val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim())
-        val items = l.select(".poster").map { i ->
-            val a = i.parent()!!
-            val name = a.attr("title")
-            val href = a.attr("href")
-            val poster = i.select("img[src]").attr("src")
-            val year = a.select(".year").text().toIntOrNull()
-            
-            // Create and return movie details as per your class definitions
-            MovieSearchResponse(
-                name,
-                href,
-                this.name,
-                TvType.Movie,
-                poster,
-                year
-            )
+        // Select the container with items from the webpage
+        val lists = document.select(".mostPopular") // Zmiana na selektor
+        val categories = ArrayList<HomePageList>()
+
+        // Iterate over the selected items to extract details
+        for (l in lists) {
+            val title = l.select("h3").text().lowercase().trim().capitalize() // Zmiana w selektorze
+            val items = l.select(".poster").map { i ->
+                val a = i.parent()!!
+                val name = a.attr("title")
+                val href = a.attr("href")
+                val poster = i.select("img[src]").attr("src")
+                val year = a.select(".year").text().toIntOrNull()
+
+                // Create and return movie details as per your class definitions
+                MovieSearchResponse(
+                    name,
+                    href,
+                    this.name,
+                    TvType.Movie,
+                    poster,
+                    year
+                )
+            }
+            categories.add(HomePageList(title, items))
         }
-        categories.add(HomePageList(title, items))
+        return HomePageResponse(categories)
     }
-    return HomePageResponse(categories)
-}
-    
+
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/wyszukaj?phrase=$query"
         val document = app.get(url, interceptor = interceptor).document
@@ -62,13 +62,14 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
         val movies = lists[1].select("div:not(.clearfix)")
         val series = lists[3].select("div:not(.clearfix)")
         if (movies.isEmpty() && series.isEmpty()) return ArrayList()
+
         fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
             return items.mapNotNull { i ->
                 val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val img =
-                    i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
+                val img = i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
                 val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
-                if (type === TvType.TvSeries) {
+
+                if (type == TvType.TvSeries) {
                     TvSeriesSearchResponse(
                         name,
                         properUrl(href)!!,
@@ -79,10 +80,19 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
                         posterHeaders = interceptor.getCookieHeaders(url).toMap()
                     )
                 } else {
-                    MovieSearchResponse(name, properUrl(href)!!, this.name, type, properUrl(img)!!, null, posterHeaders = interceptor.getCookieHeaders(url).toMap())
+                    MovieSearchResponse(
+                        name,
+                        properUrl(href)!!,
+                        this.name,
+                        type,
+                        properUrl(img)!!,
+                        null,
+                        posterHeaders = interceptor.getCookieHeaders(url).toMap()
+                    )
                 }
             }
         }
+
         return getVideos(TvType.Movie, movies) + getVideos(TvType.TvSeries, series)
     }
 
@@ -91,7 +101,7 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
         val documentTitle = document.select("title").text().trim()
 
         if (documentTitle.startsWith("Logowanie")) {
-            throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape it. If it is not please report it.")
+            throw RuntimeException("This page seems to be locked behind a login wall on the website, unable to scrape it. If it is not, please report it.")
         }
 
         var title = document.select("span[itemprop=name]").text()
@@ -99,14 +109,26 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
         val posterUrl = document.select("#single-poster > img").attr("src")
         val plot = document.select(".description").text()
         val episodesElements = document.select("#episode-list a[href]")
+
         if (episodesElements.isEmpty()) {
-            return MovieLoadResponse(title, properUrl(url)!!, name, TvType.Movie, data, properUrl(posterUrl)!!, null, plot)
+            return MovieLoadResponse(
+                title,
+                properUrl(url)!!,
+                name,
+                TvType.Movie,
+                data,
+                properUrl(posterUrl)!!,
+                null,
+                plot
+            )
         }
+
         title = document.selectFirst(".info")?.parent()?.select("h2")?.text()!!
         val episodes = episodesElements.mapNotNull { episode ->
             val e = episode.text()
             val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(e) ?: return@mapNotNull null
             val eid = regex.groups
+
             Episode(
                 episode.attr("href"),
                 e.split("]")[1].trim(),
@@ -139,9 +161,9 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
             app.get(properUrl(data)!!).document.select("#link-list").first()
         else Jsoup.parse(data)
 
-        document?.select(".link-to-video")?.apmap { item ->
+        document?.select(".link-to-video")?.forEach { item ->
             val decoded = base64Decode(item.select("a").attr("data-iframe"))
-            val link = tryParseJson<LinkElement>(decoded)?.src ?: return@apmap
+            val link = tryParseJson<LinkElement>(decoded)?.src ?: return@forEach
             loadExtractor(link, subtitleCallback, callback)
         }
         return true
