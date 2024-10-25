@@ -24,14 +24,14 @@ open class EkinoProvider : MainAPI() {
         val lists = document.select(".item-list")
         val categories = ArrayList<HomePageList>()
 
-        for (l in lists) {
-            val title = l.parent()!!.select("h3").text().trim()
-            val items = l.select(".poster").map { i ->
-                val a = i.parent()!!
-                val name = a.attr("title")
-                val href = a.attr("href")
-                val poster = i.select("img[src]").attr("src")
-                val year = a.select(".year").text().toIntOrNull()
+        for (list in lists) {
+            val title = list.parent()!!.select("h3").text().trim()
+            val items = list.select(".poster").mapNotNull { posterElement ->
+                val anchor = posterElement.parent()!!
+                val name = anchor.attr("title")
+                val href = anchor.attr("href")
+                val poster = posterElement.select("img[src]").attr("src")
+                val year = anchor.select(".year").text().toIntOrNull()
                 MovieSearchResponse(
                     name,
                     href,
@@ -51,19 +51,17 @@ open class EkinoProvider : MainAPI() {
         val response = app.post(url, mapOf("q" to query))
         val document = Jsoup.parse(response.body.string())
         val lists = document.select("#mres > div")
-        
-        if (lists.isEmpty()) return emptyList()
 
-        fun getVideos(items: Elements): List<SearchResponse> {
-            return items.mapNotNull { i ->
-                val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val img = i.selectFirst("img[src]")?.attr("src")?.replace("/thumb/", "/big/")
-                val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
+        return if (lists.isEmpty()) {
+            emptyList()
+        } else {
+            lists.mapNotNull { item ->
+                val href = item.selectFirst("a")?.attr("href") ?: return@mapNotNull null
+                val img = item.selectFirst("img[src]")?.attr("src")?.replace("/thumb/", "/big/")
+                val name = item.selectFirst(".title")?.text() ?: return@mapNotNull null
                 MovieSearchResponse(name, href, this.name, TvType.Movie, img, null)
             }
         }
-        
-        return getVideos(lists)
     }
 
     override suspend fun load(url: String): LoadResponse {
@@ -81,9 +79,9 @@ open class EkinoProvider : MainAPI() {
                 episode.attr("href"),
                 e.split("]")[1].trim(),
                 eid[1]?.value?.toInt(),
-                eid[2]?.value?.toInt(),
+                eid[2]?.value?.toInt()
             )
-        }.toMutableList()
+        }
 
         return if (episodes.isEmpty()) {
             MovieLoadResponse(title, url, name, TvType.Movie, null, posterUrl, null, plot)
