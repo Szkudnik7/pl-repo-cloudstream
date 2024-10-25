@@ -21,16 +21,16 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
-        val lists = document.select(".mostPopular .list") // Zaktualizowano selektor
+        val lists = document.select(".mostPopular .list")
         val categories = ArrayList<HomePageList>()
 
-        // Użycie stałej nazwy kategorii, ponieważ nie ma nagłówków
         val title = "Gorące Filmy!"
         val items = lists.select("li").map { item ->
             val name = item.select(".scope_right .title a").text()
             val href = mainUrl + item.select(".scope_right .title a").attr("href")
             val poster = item.select(".scope_left img[src]").attr("src")
-            val year = item.select(".info-categories .cates").text().substringBefore("|").trim().toIntOrNull() // Wydobycie roku
+            val year = item.select(".info-categories .cates").text().substringBefore("|").trim().toIntOrNull() 
+            val description = item.select(".movieDesc").text() // Dodane
 
             MovieSearchResponse(
                 name,
@@ -38,7 +38,8 @@ open class EkinoProvider : MainAPI() {
                 this.name,
                 TvType.Movie,
                 poster,
-                year
+                year,
+                description // Dodajemy opis
             )
         }
         categories.add(HomePageList(title, items))
@@ -49,8 +50,8 @@ open class EkinoProvider : MainAPI() {
         val url = "$mainUrl/wyszukiwarka?phrase=$query"
         val document = app.get(url).document
         val lists = document.select("#advanced-search > div")
-        val movies = lists[1].select(".movie") // Użyj poprawnej klasy dla filmów
-        val series = lists[3].select(".tv-series") // Zakładając, że istnieje klasa dla seriali
+        val movies = lists[1].select(".movie") 
+        val series = lists[3].select(".tv-series") 
 
         if (movies.isEmpty() && series.isEmpty()) return emptyList()
 
@@ -71,7 +72,7 @@ open class EkinoProvider : MainAPI() {
                         null
                     )
                 } else {
-                    MovieSearchResponse(name, href, this.name, type, img, null)
+                    MovieSearchResponse(name, href, this.name, type, img, null, null) // Dodaj opis w razie potrzeby
                 }
             }
         }
@@ -144,4 +145,14 @@ open class EkinoProvider : MainAPI() {
 
 data class LinkElement(
     @JsonProperty("src") val src: String
+)
+
+data class MovieSearchResponse(
+    val name: String,
+    val url: String,
+    val provider: String,
+    val type: TvType,
+    val poster: String,
+    val year: Int?,
+    val description: String? // Dodaj opis
 )
