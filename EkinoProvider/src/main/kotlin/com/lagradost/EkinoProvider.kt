@@ -6,7 +6,6 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
-import org.jsoup.nodes.Element
 
 open class EkinoProvider : MainAPI() {
     override var mainUrl = "https://ekino-tv.pl/"
@@ -18,60 +17,30 @@ open class EkinoProvider : MainAPI() {
 
     private suspend fun fetchDocument(url: String): Document? {
         return try {
-            val response = app.get(url, headers = mapOf("User-Agent" to "Mozilla/5.0"))
-            response.document
+            app.get(url, headers = mapOf("User-Agent" to "Mozilla/5.0")).document
         } catch (e: Exception) {
             e.printStackTrace()
             null
         }
     }
 
-    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val document = fetchDocument(mainUrl) ?: return HomePageResponse(emptyList())
-        val popularMovies = document.select(".mostPopular .list li")
-        val categories = ArrayList<HomePageList>()
-
-        val title = "Gorące Filmy"
-        val items = popularMovies.mapNotNull { item ->
-            val anchor = item.selectFirst("a") ?: return@mapNotNull null
-            val name = item.select(".title a").text()
-            val href = mainUrl + anchor.attr("href")
-            val poster = item.selectFirst("img[src]")?.attr("src")?.let { "https:$it" }
-            val year = item.select(".cates").text().split("|").firstOrNull()?.trim()?.toIntOrNull()
-            val description = item.select(".movieDesc").text()
-
-            MovieSearchResponse(
-                name,
-                href,
-                this.name,
-                TvType.Movie,
-                poster,
-                year
-            )
-        }
-
-        categories.add(HomePageList(title, items))
-        return HomePageResponse(categories)
-    }
-
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/search/qf/?q=$query"
         val document = fetchDocument(url) ?: return emptyList()
-        val movieElements = document.select(".movie-wrap div.movie")
-
-        val movies = movieElements.mapNotNull { element ->
+        
+        val searchResults = document.select(".movie-wrap div.movie")
+        return searchResults.mapNotNull { element ->
             val href = element.selectFirst("a")?.attr("href") ?: return@mapNotNull null
             val poster = element.selectFirst("img[src]")?.attr("src")?.let { "https:$it" }
-            val name = element.selectFirst(".title")?.text() ?: return@mapNotNull null
+            val name = element.selectFirst(".title")?.text().orEmpty()
             val type = if (element.select(".type").text().contains("Serial")) TvType.TvSeries else TvType.Movie
-
+            
             if (type == TvType.TvSeries) {
-                TvSeriesSearchResponse(name, href, this.name, type, poster, null, null)
+                TvSeriesSearchResponse(name, href, this.name, type, poster, null)
             } else {
                 MovieSearchResponse(name, href, this.name, type, poster, null)
             }
         }
-        return movies
     }
 
     override suspend fun load(url: String): LoadResponse {
@@ -80,8 +49,14 @@ open class EkinoProvider : MainAPI() {
         val title = document.selectFirst("h1.title")?.text().orEmpty()
         val posterUrl = document.selectFirst("#single-poster img")?.attr("src")?.let { "https:$it" }
         val plot = document.selectFirst(".descriptionMovie")?.text().orEmpty()
-        val linkList = document.select("#link-list").outerHtml()
-
+        
+        // Wyciągnięcie linków z przycisków
+        val linkList = document.select("#link-list a[data-iframe]").mapNotNull { btn ->
+            val encodedUrl = btn.attr("data-iframe")
+            val decodedUrl = String(android.util.Base64.decode(encodedUrl, android.util.Base64.DEFAULT))
+            ExtractorLink(name, name, decodedUrl, "", Qualities.Unknown.value, true)
+        }
+        
         return MovieLoadResponse(
             title,
             url,
@@ -100,18 +75,18 @@ open class EkinoProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val document = if (data.startsWith("http"))
-            fetchDocument(data)?.selectFirst("#link-list")
-        else Jsoup.parse(data)
-
-        document?.select("a[href]")?.forEach { item ->
-            val videoUrl = item.attr("href")
-            loadExtractor(videoUrl, subtitleCallback, callback)
+        if (data.startsWith("http")) {
+            val document = fetchDocument(data) ?: return false
+            document.select("a[data-iframe]").forEach { item ->
+                val videoUrl = String(android.util.Base64.decode(item.attr("data-iframe"), android.util.Base64.DEFAULT))
+                loadExtractor(videoUrl, subtitleCallback, callback)
+            }
+        } else {
+            Jsoup.parse(data).select("a[data-iframe]").forEach { item ->
+                val videoUrl = String(android.util.Base64.decode(item.attr("data-iframe"), android.util.Base64.DEFAULT))
+                loadExtractor(videoUrl, subtitleCallback, callback)
+            }
         }
         return true
     }
 }
-
-data class LinkElement(
-    @JsonProperty("src") val src: String
-)
