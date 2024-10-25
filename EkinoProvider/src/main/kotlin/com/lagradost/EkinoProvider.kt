@@ -60,7 +60,7 @@ class EkinoProvider : MainAPI() {
         fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
             return items.mapNotNull { i ->
                 val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val img = i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
+                val img = i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/") ?: return@mapNotNull null
                 val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
 
                 if (type == TvType.TvSeries) {
