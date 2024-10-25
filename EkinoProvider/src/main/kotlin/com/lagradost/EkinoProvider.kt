@@ -19,10 +19,11 @@ open class EkinoProvider : MainAPI() {
         TvType.Movie
     )
 
-    override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePageResponse {
+    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
         val lists = document.select(".item-list")
         val categories = ArrayList<HomePageList>()
+
         for (l in lists) {
             val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim())
             val items = l.select(".poster").map { i ->
@@ -49,15 +50,18 @@ open class EkinoProvider : MainAPI() {
         val url = "$mainUrl/wyszukiwarka?phrase=$query"
         val document = app.get(url).document
         val lists = document.select("#advanced-search > div")
-        val movies = lists[1].select("class")
-        if (movies.isEmpty() && series.isEmpty()) return ArrayList()
+        val movies = lists[1].select(".movie") // Use the correct class for movies
+        val series = lists[3].select(".tv-series") // Assuming there's a class for series
+
+        if (movies.isEmpty() && series.isEmpty()) return emptyList()
+
         fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
             return items.mapNotNull { i ->
-                val href = i.selectFirst("a")?.attr("class") ?: return@mapNotNull null
-                val img =
-                    i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
+                val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
+                val img = i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
                 val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
-                if (type === TvType.TvSeries) {
+
+                if (type == TvType.TvSeries) {
                     TvSeriesSearchResponse(
                         name,
                         href,
@@ -72,6 +76,7 @@ open class EkinoProvider : MainAPI() {
                 }
             }
         }
+
         return getVideos(TvType.Movie, movies) + getVideos(TvType.TvSeries, series)
     }
 
@@ -80,7 +85,7 @@ open class EkinoProvider : MainAPI() {
         val documentTitle = document.select("title").text().trim()
 
         if (documentTitle.startsWith("Logowanie")) {
-            throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape esit. If it is not please report it.")
+            throw RuntimeException("Ta strona wydaje się być zablokowana za ścianą logowania, nie można jej zeskrobać.")
         }
 
         var title = document.select("span[itemprop=name]").text()
@@ -88,14 +93,17 @@ open class EkinoProvider : MainAPI() {
         val posterUrl = document.select("#single-poster > img").attr("src")
         val plot = document.select(".description").text()
         val episodesElements = document.select("#episode-list a[href]")
+
         if (episodesElements.isEmpty()) {
             return MovieLoadResponse(title, url, name, TvType.Movie, data, posterUrl, null, plot)
         }
-        title = document.selectFirst(".info")?.parent()?.select("h2")?.text()!!
+
+        title = document.selectFirst(".info")?.parent()?.select("h2")?.text() ?: title
         val episodes = episodesElements.mapNotNull { episode ->
             val e = episode.text()
             val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(e) ?: return@mapNotNull null
             val eid = regex.groups
+
             Episode(
                 episode.attr("href"),
                 e.split("]")[1].trim(),
@@ -126,9 +134,9 @@ open class EkinoProvider : MainAPI() {
             app.get(data).document.select("#link-list").first()
         else Jsoup.parse(data)
 
-        document?.select(".link-to-video")?.apmap { item ->
+        document?.select(".link-to-video")?.forEach { item -> // Changed from apmap to forEach
             val decoded = base64Decode(item.select("a").attr("data-iframe"))
-            val link = tryParseJson<LinkElement>(decoded)?.src ?: return@apmap
+            val link = tryParseJson<LinkElement>(decoded)?.src ?: return@forEach
             loadExtractor(link, subtitleCallback, callback)
         }
         return true
