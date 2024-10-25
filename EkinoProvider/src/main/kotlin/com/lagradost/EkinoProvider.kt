@@ -24,7 +24,7 @@ class EkinoProvider : MainAPI() {
 
 override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePageResponse {
     val document = app.get(mainUrl).document
-    val listElements = document.select("mainWrap") // (zmien)
+    var listElements = document.select("mainWrap"); // (zmien)
     val categories = ArrayList<HomePageList>()
     for (listElement in listElements) {
         val title = capitalizeString(listElement.select("h3").text().lowercase().trim())
@@ -33,7 +33,7 @@ override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePage
             MovieSearchResponse(
                 title,
                 poster,
-                request.name, // (zmien)
+            var requestName = i.attr("name")
                 TvType.Movie,
                 null, // (zmien)
                 0 // (zmien)
