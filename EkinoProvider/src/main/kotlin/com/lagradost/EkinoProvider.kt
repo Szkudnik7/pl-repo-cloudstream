@@ -26,7 +26,7 @@ class EkinoProvider : MainAPI() {
         val document = app.get(mainUrl).document
         val lists = document.select(".mostPopular ul.list")
         val categories = ArrayList<HomePageList>()
-        
+
         for (l in lists) {
             val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim())
             val items = l.select(".poster").map { i ->
@@ -35,7 +35,8 @@ class EkinoProvider : MainAPI() {
                 val href = a.attr("href")
                 val poster = i.select("img[src]").attr("src")
                 val year = a.select(".year").text().toIntOrNull()
-                val banner = a.select(".banner-selector").attr("src") // Dostosuj selektor do banera
+                val banner = a.select(".banner-selector").attr("src") // Upewnij się, że selektor jest poprawny
+
                 MovieSearchResponse(
                     name,
                     href,
@@ -64,7 +65,7 @@ class EkinoProvider : MainAPI() {
             val href = item.selectFirst("a")?.attr("href") ?: return@mapNotNull null
             val img = item.selectFirst("img[src]")?.attr("src")
             val name = item.selectFirst(".title")?.text() ?: return@mapNotNull null
-            val banner = item.selectFirst(".banner-selector")?.attr("src") // Dostosuj selektor do banera
+            val banner = item.selectFirst(".banner-selector")?.attr("src") // Upewnij się, że selektor jest poprawny
 
             MovieSearchResponse(
                 name,
@@ -89,7 +90,7 @@ class EkinoProvider : MainAPI() {
         val title = document.select("span[itemprop=name]").text()
         val data = document.select("#link-list").outerHtml()
         val posterUrl = document.select("#single-poster > img").attr("src")
-        val bannerUrl = document.select(".banner-selector").attr("src") // Dostosuj selektor do banera
+        val bannerUrl = document.select(".banner-selector").attr("src") // Upewnij się, że selektor jest poprawny
         val plot = document.select(".description").text()
         val episodesElements = document.select("#episode-list a[href]")
 
