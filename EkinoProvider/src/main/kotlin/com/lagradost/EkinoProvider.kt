@@ -30,16 +30,20 @@ open class EkinoProvider : MainAPI() {
         val document = fetchDocument(mainUrl) ?: return HomePageResponse(emptyList())
         val categories = ArrayList<HomePageList>()
 
+        // Pobieranie głównych banerów filmowych
         val bannerMovies = document.select(".slider .slide")
         val bannerItems = bannerMovies.mapNotNull { item ->
             val name = item.selectFirst(".title")?.text() ?: return@mapNotNull null
             val href = mainUrl + (item.selectFirst("a")?.attr("href") ?: return@mapNotNull null)
             val poster = item.selectFirst("img[src]")?.attr("src")?.let { "https:$it" }
-            
+
             MovieSearchResponse(name, href, this.name, TvType.Movie, poster, null)
         }
-        categories.add(HomePageList("Główne banery", bannerItems))
+        if (bannerItems.isNotEmpty()) {
+            categories.add(HomePageList("Główne banery", bannerItems))
+        }
 
+        // Pobieranie popularnych filmów
         val popularMovies = document.select(".mostPopular .list li")
         val popularItems = popularMovies.mapNotNull { item ->
             val name = item.select(".title a").text()
@@ -49,7 +53,23 @@ open class EkinoProvider : MainAPI() {
 
             MovieSearchResponse(name, href, this.name, TvType.Movie, poster, year)
         }
-        categories.add(HomePageList("Popularne filmy", popularItems))
+        if (popularItems.isNotEmpty()) {
+            categories.add(HomePageList("Popularne filmy", popularItems))
+        }
+
+        // Pobieranie najnowszych filmów
+        val latestMovies = document.select(".latest .list li")
+        val latestItems = latestMovies.mapNotNull { item ->
+            val name = item.select(".title a").text()
+            val href = mainUrl + (item.selectFirst("a")?.attr("href") ?: return@mapNotNull null)
+            val poster = item.selectFirst("img[src]")?.attr("src")?.let { "https:$it" }
+            val year = item.select(".cates").text().split("|").firstOrNull()?.trim()?.toIntOrNull()
+
+            MovieSearchResponse(name, href, this.name, TvType.Movie, poster, year)
+        }
+        if (latestItems.isNotEmpty()) {
+            categories.add(HomePageList("Najnowsze filmy", latestItems))
+        }
 
         return HomePageResponse(categories)
     }
@@ -75,7 +95,7 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun load(url: String): LoadResponse {
         val document = fetchDocument(url) ?: return MovieLoadResponse("Error", url, name, TvType.Movie, "", "", null, "Unable to load")
-        
+
         val title = document.selectFirst("h1.title")?.text().orEmpty()
         val posterUrl = document.selectFirst("#single-poster img")?.attr("src")?.let { "https:$it" }
         val plot = document.selectFirst(".descriptionMovie")?.text().orEmpty()
