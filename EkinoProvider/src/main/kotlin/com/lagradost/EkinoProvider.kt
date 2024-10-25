@@ -26,6 +26,7 @@ class EkinoProvider : MainAPI() {
         val document = app.get(mainUrl).document
         val lists = document.select(".mostPopular ul.list")
         val categories = ArrayList<HomePageList>()
+        
         for (l in lists) {
             val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim())
             val items = l.select(".poster").map { i ->
@@ -34,7 +35,7 @@ class EkinoProvider : MainAPI() {
                 val href = a.attr("href")
                 val poster = i.select("img[src]").attr("src")
                 val year = a.select(".year").text().toIntOrNull()
-                val banner = i.select(".banner-selector").attr("src") // Dostosuj selektor do banera
+                val banner = a.select(".banner-selector").attr("src") // Dostosuj selektor do banera
                 MovieSearchResponse(
                     name,
                     href,
@@ -42,7 +43,7 @@ class EkinoProvider : MainAPI() {
                     TvType.Movie,
                     poster,
                     year,
-                    banner // Dodaj baner do odpowiedzi
+                    properUrl(banner) // Dodaj baner do odpowiedzi
                 )
             }
             categories.add(HomePageList(title, items))
@@ -51,40 +52,30 @@ class EkinoProvider : MainAPI() {
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        // Przygotuj dane do wysłania
         val params = mapOf("q" to query)
         val response = app.post("$mainUrl/search/qf", params)
-
-        // Parsowanie dokumentu
         val document = response.document
         val lists = document.select("#movie-result > div")
 
-        // Zakładając, że wyniki są w divach wewnątrz lists
         val movies = lists.select("div.movie-item") // Dostosuj selektor do struktury HTML
-
         if (movies.isEmpty()) return emptyList()
 
-        // Funkcja do przetwarzania wyników
-        fun getVideos(items: Elements): List<SearchResponse> {
-            return items.mapNotNull { item ->
-                val href = item.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val img = item.selectFirst("img[src]")?.attr("src")
-                val name = item.selectFirst(".title")?.text() ?: return@mapNotNull null
-                val banner = item.selectFirst(".banner-selector")?.attr("src") // Dostosuj selektor do banera
+        return movies.mapNotNull { item ->
+            val href = item.selectFirst("a")?.attr("href") ?: return@mapNotNull null
+            val img = item.selectFirst("img[src]")?.attr("src")
+            val name = item.selectFirst(".title")?.text() ?: return@mapNotNull null
+            val banner = item.selectFirst(".banner-selector")?.attr("src") // Dostosuj selektor do banera
 
-                MovieSearchResponse(
-                    name,
-                    properUrl(href)!!,
-                    this.name,
-                    TvType.Movie,
-                    properUrl(img),
-                    null,
-                    properUrl(banner) // Dodaj baner do odpowiedzi
-                )
-            }
+            MovieSearchResponse(
+                name,
+                properUrl(href)!!,
+                this.name,
+                TvType.Movie,
+                properUrl(img)!!,
+                null,
+                properUrl(banner) // Dodaj baner do odpowiedzi
+            )
         }
-
-        return getVideos(movies)
     }
 
     override suspend fun load(url: String): LoadResponse {
@@ -92,19 +83,20 @@ class EkinoProvider : MainAPI() {
         val documentTitle = document.select("title").text().trim()
 
         if (documentTitle.startsWith("Logowanie")) {
-            throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape it. If it is not please report it.")
+            throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape it.")
         }
 
-        var title = document.select("span[itemprop=name]").text()
+        val title = document.select("span[itemprop=name]").text()
         val data = document.select("#link-list").outerHtml()
         val posterUrl = document.select("#single-poster > img").attr("src")
         val bannerUrl = document.select(".banner-selector").attr("src") // Dostosuj selektor do banera
         val plot = document.select(".description").text()
         val episodesElements = document.select("#episode-list a[href]")
+
         if (episodesElements.isEmpty()) {
             return MovieLoadResponse(title, properUrl(url)!!, name, TvType.Movie, data, properUrl(posterUrl)!!, properUrl(bannerUrl)!!, plot)
         }
-        title = document.selectFirst(".info")?.parent()?.select("h2")?.text()!!
+
         val episodes = episodesElements.mapNotNull { episode ->
             val e = episode.text()
             val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(e) ?: return@mapNotNull null
@@ -115,7 +107,7 @@ class EkinoProvider : MainAPI() {
                 eid[1]?.value?.toInt(),
                 eid[2]?.value?.toInt(),
             )
-        }.toMutableList()
+        }
 
         return TvSeriesLoadResponse(
             title,
