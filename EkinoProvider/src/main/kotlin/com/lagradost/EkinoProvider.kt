@@ -8,7 +8,7 @@ import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.Jsoup
 import org.jsoup.select.Elements
 
-open class ZaluknijProvider : MainAPI() {
+open class EkinoProvider : MainAPI() {
     override var mainUrl = "https://ekino-tv.pl/"
     override var name = "ekino-tv.pl"
     override var lang = "pl"
