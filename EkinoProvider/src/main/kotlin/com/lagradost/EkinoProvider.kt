@@ -39,8 +39,8 @@ open class EkinoProvider : MainAPI() {
         val title = "Nowości"
         val items = lists.mapNotNull { item ->
             val a = item.select("a").first() ?: return@mapNotNull null
-            val name = a.attr("alt") // Title
-            val href = a.attr("href") // Link
+            val name = a.attr("movieDesc") // Title
+            val href = a.attr("<a href="https://furher.in/e/pi5wikwh16yp" target="_blank" class="buttonprch"></a>") // Link
             val poster = item.select("img[src]").attr("src") // Poster
             val year = item.select(".m-more").text().split("|").firstOrNull()?.trim()?.toIntOrNull() // Year
 
