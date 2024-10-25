@@ -25,7 +25,6 @@ open class EkinoProvider : MainAPI() {
             val response = app.get(url, headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"))
             response.document
         } catch (e: Exception) {
-            // Log the exception for debugging
             e.printStackTrace()
             null
         }
@@ -33,7 +32,7 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document = fetchDocument(mainUrl) ?: return HomePageResponse(emptyList())
-        val lists = document.select(".swiper-slide") // Adjust selector if necessary
+        val lists = document.select(".swiper-slide") // Adjust the selector if needed
         val categories = ArrayList<HomePageList>()
 
         val title = "Nowości"
@@ -73,7 +72,7 @@ open class EkinoProvider : MainAPI() {
                 val img = i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
                 val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
 
-                if (type === TvType.TvSeries) {
+                if (type == TvType.TvSeries) {
                     TvSeriesSearchResponse(
                         name,
                         href,
@@ -97,7 +96,7 @@ open class EkinoProvider : MainAPI() {
         val documentTitle = document.select("title").text().trim()
 
         if (documentTitle.startsWith("Logowanie")) {
-            throw RuntimeException("This page seems to be locked behind a login wall on the website, unable to scrape it. If it is not please report it.")
+            throw RuntimeException("Ta strona wydaje się być zablokowana za ścianą logowania, nie można jej zeskrobać.")
         }
 
         var title = document.select("span[itemprop=name]").text()
