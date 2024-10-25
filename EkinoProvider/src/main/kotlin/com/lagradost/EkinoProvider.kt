@@ -23,16 +23,12 @@ class EkinoProvider : MainAPI() {
     private val interceptor = CloudflareKiller()
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        // Fetch the HTML document from the live webpage
         val document = app.get(mainUrl, interceptor = interceptor).document
-
-        // Select the container with items from the webpage
-        val lists = document.select(".mostPopular") // Zmiana na selektor
+        val lists = document.select(".mostPopular")
         val categories = ArrayList<HomePageList>()
 
-        // Iterate over the selected items to extract details
         for (l in lists) {
-            val title = l.select("h3").text().lowercase().trim().capitalize() // Zmiana w selektorze
+            val title = l.select("h3").text().lowercase().trim().capitalize()
             val items = l.select(".poster").map { i ->
                 val a = i.parent()!!
                 val name = a.attr("title")
@@ -40,7 +36,6 @@ class EkinoProvider : MainAPI() {
                 val poster = i.select("img[src]").attr("src")
                 val year = a.select(".year").text().toIntOrNull()
 
-                // Create and return movie details as per your class definitions
                 MovieSearchResponse(
                     name,
                     href,
@@ -61,7 +56,6 @@ class EkinoProvider : MainAPI() {
         val lists = document.select("#advanced-search > div")
         val movies = lists[1].select("div:not(.clearfix)")
         val series = lists[3].select("div:not(.clearfix)")
-        if (movies.isEmpty() && series.isEmpty()) return ArrayList()
 
         fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
             return items.mapNotNull { i ->
@@ -123,7 +117,7 @@ class EkinoProvider : MainAPI() {
             )
         }
 
-        title = document.selectFirst(".info")?.parent()?.select("h2")?.text()!!
+        title = document.selectFirst(".info")?.parent()?.select("h2")?.text() ?: title
         val episodes = episodesElements.mapNotNull { episode ->
             val e = episode.text()
             val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(e) ?: return@mapNotNull null
@@ -155,11 +149,11 @@ class EkinoProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val document = if (data.startsWith("http"))
-            app.get(data).document.select("#link-list").first()
-        else if (data.startsWith("URL"))
-            app.get(properUrl(data)!!).document.select("#link-list").first()
-        else Jsoup.parse(data)
+        val document = when {
+            data.startsWith("http") -> app.get(data).document.select("#link-list").first()
+            data.startsWith("URL") -> app.get(properUrl(data)!!).document.select("#link-list").first()
+            else -> Jsoup.parse(data)
+        }
 
         document?.select(".link-to-video")?.forEach { item ->
             val decoded = base64Decode(item.select("a").attr("data-iframe"))
