@@ -19,31 +19,27 @@ open class EkinoProvider : MainAPI() {
         TvType.Movie
     )
 
-    override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePageResponse {
-        val document = app.get(mainUrl).document
-        val lists = document.select("mainWrap") // (zmien)
-        val categories = ArrayList<HomePageList>()
-        for (l in lists) {
-            val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim())
-            val items = l.select(".nowa-poster").map { i -> // (zmien)
-                val a = i.parent()!!
-                val name = a.attr("title")
-                val href = a.attr("href")
-                val poster = i.select("img[src]").attr("src")
-                val year = a.select(".year").text().toIntOrNull()
-                MovieSearchResponse(
-                    name,
-                    href,
-                    this.name,
-                    TvType.Movie,
-                    poster,
-                    year
-                )
-            }
-            categories.add(HomePageList(title, items))
+override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePageResponse {
+    val document = app.get(mainUrl).document
+    val listElements = document.select("mainWrap") // (zmien)
+    val categories = ArrayList<HomePageList>()
+    for (listElement in listElements) {
+        val title = capitalizeString(listElement.select("h3").text().lowercase().trim())
+        val items = listElement.select(".nowa-poster").map { i ->
+            val poster = i.attr("src")
+            MovieSearchResponse(
+                title,
+                poster,
+                request.name, // (zmien)
+                TvType.Movie,
+                null, // (zmien)
+                0 // (zmien)
+            )
         }
-        return HomePageResponse(categories)
+        categories.add(HomePageList(title, items))
     }
+    return HomePageResponse(categories)
+}
 
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/search?phrase=$query" // (zmien)
