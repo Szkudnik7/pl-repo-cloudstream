@@ -6,6 +6,7 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
+import java.util.Base64
 
 open class EkinoProvider : MainAPI() {
     override var mainUrl = "https://ekino-tv.pl/"
@@ -53,7 +54,7 @@ open class EkinoProvider : MainAPI() {
         // Wyciągnięcie linków z przycisków
         val linkList = document.select("#link-list a[data-iframe]").mapNotNull { btn ->
             val encodedUrl = btn.attr("data-iframe")
-            val decodedUrl = String(android.util.Base64.decode(encodedUrl, android.util.Base64.DEFAULT))
+            val decodedUrl = String(Base64.getDecoder().decode(encodedUrl))
             ExtractorLink(name, name, decodedUrl, "", Qualities.Unknown.value, true)
         }
         
@@ -78,12 +79,12 @@ open class EkinoProvider : MainAPI() {
         if (data.startsWith("http")) {
             val document = fetchDocument(data) ?: return false
             document.select("a[data-iframe]").forEach { item ->
-                val videoUrl = String(android.util.Base64.decode(item.attr("data-iframe"), android.util.Base64.DEFAULT))
+                val videoUrl = String(Base64.getDecoder().decode(item.attr("data-iframe")))
                 loadExtractor(videoUrl, subtitleCallback, callback)
             }
         } else {
             Jsoup.parse(data).select("a[data-iframe]").forEach { item ->
-                val videoUrl = String(android.util.Base64.decode(item.attr("data-iframe"), android.util.Base64.DEFAULT))
+                val videoUrl = String(Base64.getDecoder().decode(item.attr("data-iframe")))
                 loadExtractor(videoUrl, subtitleCallback, callback)
             }
         }
