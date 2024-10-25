@@ -5,11 +5,11 @@ import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
-import com.lagradost.cloudstream3.network.CloudflareKiller
 import org.jsoup.Jsoup
+import org.jsoup.nodes.Document
 import org.jsoup.select.Elements
 
-class EkinoProvider : MainAPI() {
+open class EkinoProvider : MainAPI() {
     override var mainUrl = "https://ekino-tv.pl/"
     override var name = "ekino-tv.pl"
     override var lang = "pl"
@@ -20,98 +20,118 @@ class EkinoProvider : MainAPI() {
         TvType.Movie
     )
 
-    private val interceptor = CloudflareKiller()
+    private suspend fun fetchDocument(url: String): Document? {
+        return try {
+            val response = app.get(url, headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"))
+            response.document
+        } catch (e: Exception) {
+            // Log the exception for debugging
+            e.printStackTrace()
+            null
+        }
+    }
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val document = app.get(mainUrl).document
-        val lists = document.select(".mostPopular ul.list")
+        val document = fetchDocument(mainUrl) ?: return HomePageResponse(emptyList())
+        val lists = document.select(".swiper-slide") // Adjust if needed
         val categories = ArrayList<HomePageList>()
 
-        for (l in lists) {
-            val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim())
-            val items = l.select(".poster").map { i ->
-                val a = i.parent()!!
-                val name = a.attr("title")
-                val href = a.attr("href")
-                val poster = i.select("img[src]").attr("src")
-                val year = a.select(".year").text().toIntOrNull()
+        val title = "Nowości"
+        val items = lists.mapNotNull { item ->
+            val a = item.select("a").first() ?: return@mapNotNull null
+            val name = a.attr("alt") // Title
+            val href = a.attr("href") // Link
+            val poster = item.select("img[src]").attr("src") // Poster
+            val year = item.select(".m-more").text().split("|").firstOrNull()?.trim()?.toIntOrNull() // Year
 
-                MovieSearchResponse(
-                    name,
-                    href,
-                    this.name,
-                    TvType.Movie,
-                    poster,
-                    year
-                )
-            }
-            categories.add(HomePageList(title, items))
+            MovieSearchResponse(
+                name,
+                href,
+                this.name,
+                TvType.Movie,
+                poster,
+                year
+            )
         }
+
+        categories.add(HomePageList(title, items))
         return HomePageResponse(categories)
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val params = mapOf("q" to query)
-        val response = app.post("$mainUrl/search/qf", params)
-        val document = response.document
-        val lists = document.select("#movie-result > div")
+        val url = "$mainUrl/wyszukiwarka?phrase=$query"
+        val document = fetchDocument(url) ?: return emptyList()
+        val lists = document.select("#advanced-search > div")
+        val movies = lists[1].select("div:not(.clearfix)")
+        val series = lists[3].select("div:not(.clearfix)")
 
-        val movies = lists.select("div.movie-item") // Dostosuj selektor do struktury HTML
-        if (movies.isEmpty()) return emptyList()
+        if (movies.isEmpty() && series.isEmpty()) return emptyList()
 
-        return movies.mapNotNull { item ->
-            val href = item.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-            val img = item.selectFirst("img[src]")?.attr("src")
-            val name = item.selectFirst(".title")?.text() ?: return@mapNotNull null
+        fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
+            return items.mapNotNull { i ->
+                val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
+                val img = i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
+                val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
 
-            MovieSearchResponse(
-                name,
-                properUrl(href)!!,
-                this.name,
-                TvType.Movie,
-                properUrl(img)!!,
-                null
-            )
+                if (type === TvType.TvSeries) {
+                    TvSeriesSearchResponse(
+                        name,
+                        href,
+                        this.name,
+                        type,
+                        img,
+                        null,
+                        null
+                    )
+                } else {
+                    MovieSearchResponse(name, href, this.name, type, img, null)
+                }
+            }
         }
+
+        return getVideos(TvType.Movie, movies) + getVideos(TvType.TvSeries, series)
     }
 
     override suspend fun load(url: String): LoadResponse {
-        val document = app.get(url, interceptor = interceptor).document
+        val document = fetchDocument(url) ?: return MovieLoadResponse("Error", url, name, TvType.Movie, "", "", null, "Unable to load")
         val documentTitle = document.select("title").text().trim()
 
         if (documentTitle.startsWith("Logowanie")) {
-            throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape it.")
+            throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape it. If it is not please report it.")
         }
 
-        val title = document.select("span[itemprop=name]").text()
+        var title = document.select("span[itemprop=name]").text()
         val data = document.select("#link-list").outerHtml()
         val posterUrl = document.select("#single-poster > img").attr("src")
         val plot = document.select(".description").text()
         val episodesElements = document.select("#episode-list a[href]")
 
         if (episodesElements.isEmpty()) {
-            return MovieLoadResponse(title, properUrl(url)!!, name, TvType.Movie, data, properUrl(posterUrl)!!, plot)
+            return MovieLoadResponse(title, url, name, TvType.Movie, data, posterUrl, null, plot)
         }
 
+        title = document.selectFirst(".info")?.parent()?.select("h2")?.text()!!
         val episodes = episodesElements.mapNotNull { episode ->
             val e = episode.text()
             val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(e) ?: return@mapNotNull null
             val eid = regex.groups
+
             Episode(
                 episode.attr("href"),
                 e.split("]")[1].trim(),
                 eid[1]?.value?.toInt(),
                 eid[2]?.value?.toInt(),
             )
-        }
+        }.toMutableList()
 
         return TvSeriesLoadResponse(
             title,
-            properUrl(url)!!,
+            url,
             name,
             TvType.TvSeries,
             episodes,
-            properUrl(posterUrl)!!,
+            posterUrl,
+            null,
             plot
         )
     }
@@ -123,9 +143,7 @@ class EkinoProvider : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         val document = if (data.startsWith("http"))
-            app.get(data).document.select("#link-list").first()
-        else if (data.startsWith("URL"))
-            app.get(properUrl(data)!!).document.select("#link-list").first()
+            fetchDocument(data)?.select("#link-list")?.first()
         else Jsoup.parse(data)
 
         document?.select(".link-to-video")?.forEach { item ->
@@ -135,48 +153,8 @@ class EkinoProvider : MainAPI() {
         }
         return true
     }
-
-    private fun properUrl(inUrl: String?): String? {
-        if (inUrl == null) return null
-
-        return fixUrl(
-            inUrl.replace(
-                "^URL".toRegex(),
-                "/"
-            )
-        )
-    }
 }
 
 data class LinkElement(
     @JsonProperty("src") val src: String
-)
-
-data class MovieSearchResponse(
-    val title: String,
-    val url: String,
-    val provider: String,
-    val type: TvType,
-    val posterUrl: String,
-    val year: Int?
-)
-
-data class MovieLoadResponse(
-    val title: String,
-    val url: String,
-    val provider: String,
-    val type: TvType,
-    val data: String,
-    val posterUrl: String,
-    val plot: String
-)
-
-data class TvSeriesLoadResponse(
-    val title: String,
-    val url: String,
-    val provider: String,
-    val type: TvType,
-    val episodes: List<Episode>,
-    val posterUrl: String,
-    val plot: String
 )
