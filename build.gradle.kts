@@ -1,7 +1,7 @@
 plugins {
-    id("com.android.application")
+    id("com.android.application") version "8.2.2" apply true
     kotlin("android")
-    kotlin("kapt")
+    kotlin("kapt") // Dodaj, jeśli korzystasz z Kapt
 }
 
 buildscript {
@@ -35,7 +35,7 @@ cloudstream {
 }
 
 dependencies {
-    implementation("com.lagradost.cloudstream3:cloudstream-core:1.0.0") // Upewnij się, że masz tę wersję
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.13.0") // Jackson
-    implementation("org.jsoup:jsoup:1.14.3") // Jsoup
+    implementation("com.lagradost.cloudstream3:cloudstream-core:1.0.0")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.13.0")
+    implementation("org.jsoup:jsoup:1.14.3")
 }
