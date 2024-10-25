@@ -4,10 +4,8 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
-import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.Jsoup
 import org.jsoup.select.Elements
-
 open class EkinoProvider : MainAPI() {
     override var mainUrl = "https://ekino-tv.pl/" // (zmien)
     override var name = "ekino-tv.pl" // (zmien)
@@ -18,7 +16,6 @@ open class EkinoProvider : MainAPI() {
         TvType.TvSeries,
         TvType.Movie
     )
-
     override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
         val lists = document.select(".item-list")
@@ -47,74 +44,17 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/search?phrase=$query" // (zmien)
-        val document = app.get(url).document
-        val lists = document.select("#search-results > div") // (zmien)
-        val movies = lists[0].select("div:not(.clearfix)") // (zmien)
-        val series = lists[1].select("div:not(.clearfix)") // (zmien)
-        if (movies.isEmpty() && series.isEmpty()) return ArrayList()
-        
-        fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
-            return items.mapNotNull { i ->
-                val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val img = i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/") // (zmien)
-                val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
-                if (type === TvType.TvSeries) {
-                    TvSeriesSearchResponse(
-                        name,
-                        href,
-                        this.name,
-                        type,
-                        img,
-                        null,
-                        null
-                    )
-                } else {
-                    MovieSearchResponse(name, href, this.name, type, img, null)
-                }
+        try {
+            val document = app.get(url).document
+            val lists = document.select("#search-results > div") // (zmien)
+            if (!lists.empty()) {
+                return SearchResults(lists, query)
+            } else {
+                return emptyList()
             }
+        } catch (e: Exception) {
+            throw RuntimeException("Failed to parse search results", e)
         }
-        return getVideos(TvType.Movie, movies) + getVideos(TvType.TvSeries, series)
-    }
-
-    override suspend fun load(url: String): LoadResponse {
-        val document = app.get(url).document
-        val documentTitle = document.select("title").text().trim()
-
-        if (documentTitle.startsWith("Logowanie")) {
-            throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape esit. If it is not please report it.")
-        }
-
-        var title = document.select("span[itemprop=name]").text() // (zmien)
-        val data = document.select("#link-list").outerHtml() // (zmien)
-        val posterUrl = document.select("#single-poster > img").attr("src") // (zmien)
-        val plot = document.select(".description").text() // (zmien)
-        val episodesElements = document.select("#episode-list a[href]") // (zmien)
-        if (episodesElements.isEmpty()) {
-            return MovieLoadResponse(title, url, name, TvType.Movie, data, posterUrl, null, plot)
-        }
-        title = document.selectFirst(".info")?.parent()?.select("h2")?.text()!! // (zmien)
-        val episodes = episodesElements.mapNotNull { episode ->
-            val e = episode.text()
-            val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(e) ?: return@mapNotNull null
-            val eid = regex.groups
-            Episode(
-                episode.attr("href"),
-                e.split("]")[1].trim(),
-                eid[1]?.value?.toInt(),
-                eid[2]?.value?.toInt(),
-            )
-        }.toMutableList()
-
-        return TvSeriesLoadResponse(
-            title,
-            url,
-            name,
-            TvType.TvSeries,
-            episodes,
-            posterUrl,
-            null,
-            plot
-        )
     }
 
     override suspend fun loadLinks(
@@ -126,16 +66,136 @@ open class EkinoProvider : MainAPI() {
         val document = if (data.startsWith("http"))
             app.get(data).document.select("#link-list").first() // (zmien)
         else Jsoup.parse(data)
-
-        document?.select(".link-to-video")?.apmap { item -> // (zmien)
+        document?.select(".link-to-video")?.apmap { item ->
             val decoded = base64Decode(item.select("a").attr("data-iframe"))
-            val link = tryParseJson<LinkElement>(decoded)?.src ?: return@apmap
+            val link = tryParseJson<LinkElement>(decoded)?.src ?: return false
             loadExtractor(link, subtitleCallback, callback)
+            true
         }
-        return true
+    }
+
+    override suspend fun loadSeriesLinks(
+        data: String,
+        isCasting: Boolean,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+        val document = if (data.startsWith("http"))
+            app.get(data).document.select("#link-list").first() // (zmien)
+        else Jsoup.parse(data)
+        document?.select(".link-to-video")?.apmap { item ->
+            val decoded = base64Decode(item.select("a").attr("data-iframe"))
+            val link = tryParseJson<LinkElement>(decoded)?.src ?: return false
+            loadExtractor(link, subtitleCallback, callback)
+            true
+        }
+    }
+
+    override suspend fun loadSeriesPageLinks(
+        data: String,
+        isCasting: Boolean,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+        val document = if (data.startsWith("http"))
+            app.get(data).document.select("#link-list").first() // (zmien)
+        else Jsoup.parse(data)
+        document?.select(".link-to-video")?.apmap { item ->
+            val decoded = base64Decode(item.select("a").attr("data-iframe"))
+            val link = tryParseJson<LinkElement>(decoded)?.src ?: return false
+            loadExtractor(link, subtitleCallback, callback)
+            true
+        }
+    }
+
+    override suspend fun loadLinks(
+        data: String,
+        isCasting: Boolean,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+        if (data.startsWith("http")) {
+            return loadSeriesPageLinks(data, isCasting, subtitleCallback, callback)
+        } else {
+            val links = data.split(",")
+            for (link in links) {
+                val parsedLink = link.split("?")[1].split("=")[0]
+                if (parsedLink.startsWith("/")) {
+                    val url = "https://ekino-tv.pl/$parsedLink"
+                    return loadLinks(url, isCasting, subtitleCallback, callback)
+                } else {
+                    return false
+                }
+            }
+        }
+    }
+
+    override suspend fun loadSeriesPage(
+        data: String,
+        isCasting: Boolean,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+        val document = if (data.startsWith("http"))
+            app.get(data).document.select("#link-list").first() // (zmien)
+        else Jsoup.parse(data)
+        document?.select(".link-to-video")?.apmap { item ->
+            val decoded = base64Decode(item.select("a").attr("data-iframe"))
+            val link = tryParseJson<LinkElement>(decoded)?.src ?: return false
+            loadExtractor(link, subtitleCallback, callback)
+            true
+        }
+    }
+
+    override suspend fun loadSeriesLinks(
+        data: String,
+        isCasting: Boolean,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+        val document = if (data.startsWith("http"))
+            app.get(data).document.select("#link-list").first() // (zmien)
+        else Jsoup.parse(data)
+        document?.select(".link-to-video")?.apmap { item ->
+            val decoded = base64Decode(item.select("a").attr("data-iframe"))
+            val link = tryParseJson<LinkElement>(decoded)?.src ?: return false
+            loadExtractor(link, subtitleCallback, callback)
+            true
+        }
+    }
+
+    override suspend fun searchAndLinks(
+        data: String,
+        isCasting: Boolean,
+        subtitleCallback: (SubtitleFile) -> Unit,
+        callback: (ExtractorLink) -> Unit
+    ): Boolean {
+        return search(data) + loadLinks(data, isCasting, subtitleCallback, callback)
     }
 }
+data class SearchResults(val links: List<ExtractorLink>, val query: String) : Collection<SearchResult> {
 
-data class LinkElement(
-    @JsonProperty("src") val src: String
-)
+    override fun iterator(): Iterator<SearchResult> = object: Iterator<SearchResult>() {
+        var pos = 0
+        override operator fun hasNext(): Boolean = pos < links.size
+        override operator fun next(): SearchResult? {
+            if (pos >= links.size) {
+                throw RuntimeException("No more search results")
+            }
+            val link = links[pos]
+            pos += 1
+            return SearchResult(link, query)
+        }
+    }
+
+    override fun toString() = "$query -> ${links.map { it.toString() }.joinToString(",")}"
+}
+
+data class EmptyList : Collection<SearchResult> {
+
+}
+data class SearchResult(val link: String, val query: String) : Comparable<SearchResult> {
+    override fun compareTo(other: SearchResult): Int {
+        return this.query.compareTo(other.query)
+    }
+}
