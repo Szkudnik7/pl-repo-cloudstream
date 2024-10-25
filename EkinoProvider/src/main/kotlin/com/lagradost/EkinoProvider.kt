@@ -42,12 +42,12 @@ open class EkinoProvider : MainAPI() {
             val poster = item.select("img").attr("src")
 
             MovieSearchResponse(
-                name,
-                href,
-                this.name,
-                TvType.Movie,
-                poster,
-                null
+                name = name,
+                url = href,
+                apiName = this.name,
+                type = TvType.Movie,
+                posterUrl = poster,
+                year = null
             )
         }
 
@@ -66,18 +66,27 @@ open class EkinoProvider : MainAPI() {
             val name = result.attr("title")
 
             MovieSearchResponse(
-                name,
-                href,
-                this.name,
-                TvType.Movie,
-                img,
-                null
+                name = name,
+                url = href,
+                apiName = this.name,
+                type = TvType.Movie,
+                posterUrl = img,
+                year = null
             )
         }
     }
 
     override suspend fun load(url: String): LoadResponse {
-        val document = fetchDocument(url) ?: return MovieLoadResponse("Error", url, name, TvType.Movie, "", "", null, "Unable to load")
+        val document = fetchDocument(url) ?: return MovieLoadResponse(
+            name = "Error",
+            url = url,
+            apiName = this.name,
+            type = TvType.Movie,
+            dataUrl = null,
+            posterUrl = "",
+            year = null,
+            plot = "Unable to load"
+        )
         val documentTitle = document.select("title").text().trim()
 
         if (documentTitle.startsWith("Logowanie")) {
@@ -90,7 +99,16 @@ open class EkinoProvider : MainAPI() {
         val episodesElements = document.select("#episode-list a[href]")
 
         if (episodesElements.isEmpty()) {
-            return MovieLoadResponse(title, url, name, TvType.Movie, null, posterUrl, null, plot)
+            return MovieLoadResponse(
+                name = title,
+                url = url,
+                apiName = this.name,
+                type = TvType.Movie,
+                dataUrl = null,
+                posterUrl = posterUrl,
+                year = null,
+                plot = plot
+            )
         }
 
         title = document.selectFirst(".scope_right .title")?.text() ?: "Nieznany tytuł"
@@ -100,22 +118,22 @@ open class EkinoProvider : MainAPI() {
             val eid = regex.groups
 
             Episode(
-                episode.attr("href"),
-                e.split("]")[1].trim(),
-                eid[1]?.value?.toInt(),
-                eid[2]?.value?.toInt(),
+                url = episode.attr("href"),
+                name = e.split("]")[1].trim(),
+                season = eid[1]?.value?.toInt(),
+                episode = eid[2]?.value?.toInt(),
             )
         }.toMutableList()
 
         return TvSeriesLoadResponse(
-            title,
-            url,
-            name,
-            TvType.TvSeries,
-            episodes,
-            posterUrl,
-            null,
-            plot
+            name = title,
+            url = url,
+            apiName = this.name,
+            type = TvType.TvSeries,
+            episodes = episodes,
+            posterUrl = posterUrl,
+            year = null,
+            plot = plot
         )
     }
 
