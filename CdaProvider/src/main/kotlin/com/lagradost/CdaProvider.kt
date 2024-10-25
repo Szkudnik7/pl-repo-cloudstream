@@ -35,7 +35,7 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
         val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim())
         val items = l.select(".poster").map { i ->
             val a = i.parent()!!
-            val name = a.attr("title")
+            val name = a.attr(".items .item h2")
             val href = a.attr("href")
             val poster = i.select("img[src]").attr("src")
             val year = a.select(".year").text().toIntOrNull()
