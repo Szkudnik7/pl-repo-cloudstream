@@ -8,9 +8,9 @@ import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.Jsoup
 import org.jsoup.select.Elements
 
-open class ZaluknijProvider : MainAPI() {
-    override var mainUrl = "https://zaluknij.cc/"
-    override var name = "Zaluknij.cc"
+open class EkinoProvider : MainAPI() {
+    override var mainUrl = "https://ekino-tv.pl/" // (zmien)
+    override var name = "ekino-tv.pl" // (zmien)
     override var lang = "pl"
     override val hasMainPage = true
     override val usesWebView = true
@@ -21,11 +21,11 @@ open class ZaluknijProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
-        val lists = document.select(".item-list")
+        val lists = document.select("mainWrap") // (zmien)
         val categories = ArrayList<HomePageList>()
         for (l in lists) {
             val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim())
-            val items = l.select(".poster").map { i ->
+            val items = l.select(".nowa-poster").map { i -> // (zmien)
                 val a = i.parent()!!
                 val name = a.attr("title")
                 val href = a.attr("href")
@@ -46,17 +46,17 @@ open class ZaluknijProvider : MainAPI() {
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val url = "$mainUrl/wyszukiwarka?phrase=$query"
+        val url = "$mainUrl/search?phrase=$query" // (zmien)
         val document = app.get(url).document
-        val lists = document.select("#advanced-search > div")
-        val movies = lists[1].select("div:not(.clearfix)")
-        val series = lists[3].select("div:not(.clearfix)")
+        val lists = document.select("#search-results > div") // (zmien)
+        val movies = lists[0].select("div:not(.clearfix)") // (zmien)
+        val series = lists[1].select("div:not(.clearfix)") // (zmien)
         if (movies.isEmpty() && series.isEmpty()) return ArrayList()
+        
         fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
             return items.mapNotNull { i ->
                 val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val img =
-                    i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
+                val img = i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/") // (zmien)
                 val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
                 if (type === TvType.TvSeries) {
                     TvSeriesSearchResponse(
@@ -84,15 +84,15 @@ open class ZaluknijProvider : MainAPI() {
             throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape esit. If it is not please report it.")
         }
 
-        var title = document.select("span[itemprop=name]").text()
-        val data = document.select("#link-list").outerHtml()
-        val posterUrl = document.select("#single-poster > img").attr("src")
-        val plot = document.select(".description").text()
-        val episodesElements = document.select("#episode-list a[href]")
+        var title = document.select("span[itemprop=name]").text() // (zmien)
+        val data = document.select("#link-list").outerHtml() // (zmien)
+        val posterUrl = document.select("#single-poster > img").attr("src") // (zmien)
+        val plot = document.select(".description").text() // (zmien)
+        val episodesElements = document.select("#episode-list a[href]") // (zmien)
         if (episodesElements.isEmpty()) {
             return MovieLoadResponse(title, url, name, TvType.Movie, data, posterUrl, null, plot)
         }
-        title = document.selectFirst(".info")?.parent()?.select("h2")?.text()!!
+        title = document.selectFirst(".info")?.parent()?.select("h2")?.text()!! // (zmien)
         val episodes = episodesElements.mapNotNull { episode ->
             val e = episode.text()
             val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(e) ?: return@mapNotNull null
@@ -124,10 +124,10 @@ open class ZaluknijProvider : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         val document = if (data.startsWith("http"))
-            app.get(data).document.select("#link-list").first()
+            app.get(data).document.select("#link-list").first() // (zmien)
         else Jsoup.parse(data)
 
-        document?.select(".link-to-video")?.apmap { item ->
+        document?.select(".link-to-video")?.apmap { item -> // (zmien)
             val decoded = base64Decode(item.select("a").attr("data-iframe"))
             val link = tryParseJson<LinkElement>(decoded)?.src ?: return@apmap
             loadExtractor(link, subtitleCallback, callback)
