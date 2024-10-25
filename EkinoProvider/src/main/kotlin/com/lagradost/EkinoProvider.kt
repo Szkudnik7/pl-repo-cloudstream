@@ -33,15 +33,15 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document = fetchDocument(mainUrl) ?: return HomePageResponse(emptyList())
-        val lists = document.select(".swiper-slide") // Adjust if needed
+        val lists = document.select(".swiper-slide") // Adjust selector if necessary
         val categories = ArrayList<HomePageList>()
 
         val title = "Nowości"
         val items = lists.mapNotNull { item ->
             val a = item.select("a").first() ?: return@mapNotNull null
-            val name = a.attr(".mainWrap") // Title
+            val name = a.select(".mainWrap").text() // Title
             val href = a.attr("href") // Link
-            val poster = item.select(".scope_left").attr("src") // Poster
+            val poster = item.select("img").attr("src") // Poster
             val year = item.select(".m-more").text().split("|").firstOrNull()?.trim()?.toIntOrNull() // Year
 
             MovieSearchResponse(
@@ -97,7 +97,7 @@ open class EkinoProvider : MainAPI() {
         val documentTitle = document.select("title").text().trim()
 
         if (documentTitle.startsWith("Logowanie")) {
-            throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape it. If it is not please report it.")
+            throw RuntimeException("This page seems to be locked behind a login wall on the website, unable to scrape it. If it is not please report it.")
         }
 
         var title = document.select("span[itemprop=name]").text()
@@ -110,7 +110,7 @@ open class EkinoProvider : MainAPI() {
             return MovieLoadResponse(title, url, name, TvType.Movie, data, posterUrl, null, plot)
         }
 
-        title = document.selectFirst(".info")?.parent()?.select("h2")?.text()!!
+        title = document.selectFirst(".info")?.parent()?.select("h2")?.text() ?: title
         val episodes = episodesElements.mapNotNull { episode ->
             val e = episode.text()
             val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(e) ?: return@mapNotNull null
