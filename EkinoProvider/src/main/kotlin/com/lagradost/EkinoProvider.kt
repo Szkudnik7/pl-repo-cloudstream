@@ -6,12 +6,11 @@ import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.Jsoup
-import org.jsoup.nodes.Document
 import org.jsoup.select.Elements
 
-open class EkinoProvider : MainAPI() {
-    override var mainUrl = "https://ekino-tv.pl/"
-    override var name = "ekino-tv.pl"
+open class ZaluknijProvider : MainAPI() {
+    override var mainUrl = "https://zaluknij.cc/"
+    override var name = "Zaluknij.cc"
     override var lang = "pl"
     override val hasMainPage = true
     override val usesWebView = true
@@ -20,122 +19,106 @@ open class EkinoProvider : MainAPI() {
         TvType.Movie
     )
 
-    private suspend fun fetchDocument(url: String): Document? {
-        return try {
-            val response = app.get(url, headers = mapOf("User-Agent" to "Mozilla/5.0"))
-            response.document
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
-
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val document = fetchDocument(mainUrl) ?: return HomePageResponse(emptyList())
-        val sliderItems = document.select("#posters a")
+        val document = app.get(mainUrl).document
+        val lists = document.select(".item-list")
         val categories = ArrayList<HomePageList>()
-
-        val title = "Nowości"
-        val items = sliderItems.mapNotNull { item ->
-            val name = item.attr("original-title")
-            val href = item.attr("href")
-            val poster = item.select("img").attr("src")
-
-            if (name.isNotEmpty() && href.isNotEmpty() && poster.isNotEmpty()) {
+        for (l in lists) {
+            val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim())
+            val items = l.select(".poster").map { i ->
+                val a = i.parent()!!
+                val name = a.attr("title")
+                val href = a.attr("href")
+                val poster = i.select("img[src]").attr("src")
+                val year = a.select(".year").text().toIntOrNull()
                 MovieSearchResponse(
-                    name = name,
-                    url = mainUrl + href,
-                    apiName = this.name,
-                    type = TvType.Movie,
-                    posterUrl = poster,
-                    year = null
+                    name,
+                    href,
+                    this.name,
+                    TvType.Movie,
+                    poster,
+                    year
                 )
-            } else null
+            }
+            categories.add(HomePageList(title, items))
         }
-
-        categories.add(HomePageList(title, items))
         return HomePageResponse(categories)
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val url = "$mainUrl/search/qf?q=$query"
-        val document = fetchDocument(url) ?: return emptyList()
-        val searchResults = document.select("#movie-result a")
-
-        return searchResults.mapNotNull { result ->
-            val href = result.attr("href")
-            val img = result.select("img").attr("src")
-            val name = result.attr("title")
-
-            if (name.isNotEmpty() && href.isNotEmpty() && img.isNotEmpty()) {
-                MovieSearchResponse(
-                    name = name,
-                    url = mainUrl + href,
-                    apiName = this.name,
-                    type = TvType.Movie,
-                    posterUrl = img,
-                    year = null
-                )
-            } else null
+        val url = "$mainUrl/wyszukiwarka?phrase=$query"
+        val document = app.get(url).document
+        val lists = document.select("#advanced-search > div")
+        val movies = lists[1].select("div:not(.clearfix)")
+        val series = lists[3].select("div:not(.clearfix)")
+        if (movies.isEmpty() && series.isEmpty()) return ArrayList()
+        
+        fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
+            return items.mapNotNull { i ->
+                val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
+                val img = i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
+                val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
+                if (type === TvType.TvSeries) {
+                    TvSeriesSearchResponse(
+                        name,
+                        href,
+                        this.name,
+                        type,
+                        img,
+                        null,
+                        null
+                    )
+                } else {
+                    MovieSearchResponse(name, href, this.name, type, img, null)
+                }
+            }
         }
+        return getVideos(TvType.Movie, movies) + getVideos(TvType.TvSeries, series)
     }
 
     override suspend fun load(url: String): LoadResponse {
-        val document = fetchDocument(url) ?: return MovieLoadResponse(
-            name = "Error",
-            url = url,
-            apiName = this.name,
-            type = TvType.Movie,
-            dataUrl = null,
-            posterUrl = "",
-            year = null,
-            plot = "Unable to load"
-        )
+        val document = app.get(url).document
+        val documentTitle = document.select("title").text().trim()
 
-        // Ensure these selectors match the current website structure
-        val title = document.select(".scope_right .title").text().ifEmpty { "Unknown Title" }
-        val plot = document.select(".movieDesc").text().ifEmpty { "No description available." }
-        val posterUrl = document.select(".scope_left img").attr("src").ifEmpty { "" }
+        if (documentTitle.startsWith("Logowanie")) {
+            throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape. If it is not please report it.")
+        }
+
+        val title = document.select("span[itemprop=name]").text().ifEmpty { 
+            document.select("h1").text() 
+        }
+        
+        val posterUrl = document.select("#single-poster > img").attr("src")
+        val plot = document.select(".description").text().ifEmpty { 
+            document.select(".plot").text() 
+        }
+        
         val episodesElements = document.select("#episode-list a[href]")
-
         if (episodesElements.isEmpty()) {
-            return MovieLoadResponse(
-                name = title,
-                url = url,
-                apiName = this.name,
-                type = TvType.Movie,
-                dataUrl = null,
-                posterUrl = posterUrl,
-                year = null,
-                plot = plot
-            )
+            return MovieLoadResponse(title, url, name, TvType.Movie, "", posterUrl, null, plot)
         }
 
         val episodes = episodesElements.mapNotNull { episode ->
             val e = episode.text()
             val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(e) ?: return@mapNotNull null
-            val season = regex.groupValues[1].toIntOrNull()
-            val episodeNumber = regex.groupValues[2].toIntOrNull()
-
-            if (season != null && episodeNumber != null) {
-                Episode(
-                    url = mainUrl + episode.attr("href"),
-                    name = e.split("]")[1].trim(),
-                    season = season,
-                    episode = episodeNumber
-                )
-            } else null
-        }
+            val eid = regex.groups
+            Episode(
+                episode.attr("href"),
+                e.split("]")[1].trim(),
+                eid[1]?.value?.toInt(),
+                eid[2]?.value?.toInt(),
+            )
+        }.toMutableList()
 
         return TvSeriesLoadResponse(
-            name = title,
-            url = url,
-            apiName = this.name,
-            type = TvType.TvSeries,
-            episodes = episodes,
-            posterUrl = posterUrl,
-            year = null,
-            plot = plot
+            title,
+            url,
+            name,
+            TvType.TvSeries,
+            episodes,
+            posterUrl,
+            null,
+            plot
         )
     }
 
@@ -145,13 +128,11 @@ open class EkinoProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val document = if (data.startsWith("http")) {
-            fetchDocument(data)?.select("#link-list")?.first()
-        } else {
-            Jsoup.parse(data)
-        }
+        val document = if (data.startsWith("http"))
+            app.get(data).document.select("#link-list").first()
+        else Jsoup.parse(data)
 
-        document?.select(".link-to-video")?.forEach { item ->
+        document?.select(".link-to-video")?.forEach { item -> // Zmieniamy na forEach
             val decoded = base64Decode(item.select("a").attr("data-iframe"))
             val link = tryParseJson<LinkElement>(decoded)?.src ?: return@forEach
             loadExtractor(link, subtitleCallback, callback)
