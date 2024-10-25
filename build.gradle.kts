@@ -1,8 +1,5 @@
 import com.lagradost.cloudstream3.gradle.CloudstreamExtension 
 import com.android.build.gradle.BaseExtension
-implementation 'org.jsoup:jsoup:1.14.3'
-implementation 'com.fasterxml.jackson.module:jackson-module-kotlin:2.13.1'
-
 
 buildscript {
     repositories {
