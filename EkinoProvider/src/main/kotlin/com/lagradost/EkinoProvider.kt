@@ -13,7 +13,7 @@ open class EkinoProvider : MainAPI() {
     override var name = "ekino-tv.pl"
     override var lang = "pl"
     override val hasMainPage = true
-    override val usesWebView = false
+    override val usesWebView = true
     override val supportedTypes = setOf(TvType.TvSeries, TvType.Movie)
 
     private suspend fun fetchDocument(url: String): Document? {
@@ -28,56 +28,42 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document = fetchDocument(mainUrl) ?: return HomePageResponse(emptyList())
+        val popularMovies = document.select(".mostPopular .list li")
         val categories = ArrayList<HomePageList>()
 
-        // Pobieranie głównych banerów filmowych
-        val bannerMovies = document.select(".slider .slide")
-        val bannerItems = bannerMovies.mapNotNull { item ->
-            val name = item.selectFirst(".title")?.text() ?: return@mapNotNull null
-            val href = mainUrl + (item.selectFirst("a")?.attr("href") ?: return@mapNotNull null)
-            val poster = item.selectFirst("img[src]")?.attr("src")?.let { "https:$it" }
-
-            MovieSearchResponse(name, href, this.name, TvType.Movie, poster, null)
-        }
-        if (bannerItems.isNotEmpty()) {
-            categories.add(HomePageList("Główne banery", bannerItems))
-        }
-
-        // Pobieranie popularnych filmów
-        val popularMovies = document.select(".mostPopular .list li")
-        val popularItems = popularMovies.mapNotNull { item ->
+        val title = "Gorące Filmy"
+        val items = popularMovies.mapNotNull { item ->
+            val anchor = item.selectFirst("a") ?: return@mapNotNull null
             val name = item.select(".title a").text()
-            val href = mainUrl + (item.selectFirst("a")?.attr("href") ?: return@mapNotNull null)
+            val href = mainUrl + anchor.attr("href")
             val poster = item.selectFirst("img[src]")?.attr("src")?.let { "https:$it" }
             val year = item.select(".cates").text().split("|").firstOrNull()?.trim()?.toIntOrNull()
 
-            MovieSearchResponse(name, href, this.name, TvType.Movie, poster, year)
-        }
-        if (popularItems.isNotEmpty()) {
-            categories.add(HomePageList("Popularne filmy", popularItems))
-        }
-
-        // Pobieranie najnowszych filmów
-        val latestMovies = document.select(".latest .list li")
-        val latestItems = latestMovies.mapNotNull { item ->
-            val name = item.select(".title a").text()
-            val href = mainUrl + (item.selectFirst("a")?.attr("href") ?: return@mapNotNull null)
-            val poster = item.selectFirst("img[src]")?.attr("src")?.let { "https:$it" }
-            val year = item.select(".cates").text().split("|").firstOrNull()?.trim()?.toIntOrNull()
-
-            MovieSearchResponse(name, href, this.name, TvType.Movie, poster, year)
-        }
-        if (latestItems.isNotEmpty()) {
-            categories.add(HomePageList("Najnowsze filmy", latestItems))
+            MovieSearchResponse(
+                name,
+                href,
+                this.name,
+                TvType.Movie,
+                poster,
+                year
+            )
         }
 
+        categories.add(HomePageList(title, items))
         return HomePageResponse(categories)
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/search/qf/?q=$query"
         val document = fetchDocument(url) ?: return emptyList()
+
+        // Debug: Wydrukuj HTML dokumentu
+        println("HTML Document: ${document.outerHtml()}")
+
         val searchResults = document.select(".movie-wrap div.movie")
+        if (searchResults.isEmpty()) {
+            println("Brak wyników wyszukiwania dla zapytania: $query")
+        }
 
         return searchResults.mapNotNull { element ->
             val href = mainUrl + (element.selectFirst("a")?.attr("href") ?: return@mapNotNull null)
@@ -99,14 +85,14 @@ open class EkinoProvider : MainAPI() {
         val title = document.selectFirst("h1.title")?.text().orEmpty()
         val posterUrl = document.selectFirst("#single-poster img")?.attr("src")?.let { "https:$it" }
         val plot = document.selectFirst(".descriptionMovie")?.text().orEmpty()
-        val linkContainer = document.select("#link-list").outerHtml()
+        val linkList = document.select("#link-list").outerHtml()
 
         return MovieLoadResponse(
             title,
             url,
             name,
             TvType.Movie,
-            linkContainer,
+            linkList,
             posterUrl,
             null,
             plot
