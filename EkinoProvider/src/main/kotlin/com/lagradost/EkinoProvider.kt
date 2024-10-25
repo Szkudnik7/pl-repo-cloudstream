@@ -29,8 +29,7 @@ open class EkinoProvider : MainAPI() {
             val name = item.select(".scope_right .title a").text()
             val href = mainUrl + item.select(".scope_right .title a").attr("href")
             val poster = item.select(".scope_left img[src]").attr("src")
-            val year = item.select(".info-categories .cates").text().substringBefore("|").trim().toIntOrNull() 
-            val description = item.select(".movieDesc").text() // Dodane
+            val year = item.select(".info-categories .cates").text().substringBefore("|").trim().toIntOrNull()
 
             MovieSearchResponse(
                 name,
@@ -38,8 +37,7 @@ open class EkinoProvider : MainAPI() {
                 this.name,
                 TvType.Movie,
                 poster,
-                year,
-                description // Dodajemy opis
+                year
             )
         }
         categories.add(HomePageList(title, items))
@@ -50,8 +48,8 @@ open class EkinoProvider : MainAPI() {
         val url = "$mainUrl/wyszukiwarka?phrase=$query"
         val document = app.get(url).document
         val lists = document.select("#advanced-search > div")
-        val movies = lists[1].select(".movie") 
-        val series = lists[3].select(".tv-series") 
+        val movies = lists[1].select(".movie")
+        val series = lists[3].select(".tv-series")
 
         if (movies.isEmpty() && series.isEmpty()) return emptyList()
 
@@ -72,7 +70,7 @@ open class EkinoProvider : MainAPI() {
                         null
                     )
                 } else {
-                    MovieSearchResponse(name, href, this.name, type, img, null, null) // Dodaj opis w razie potrzeby
+                    MovieSearchResponse(name, href, this.name, type, img, null)
                 }
             }
         }
@@ -145,14 +143,4 @@ open class EkinoProvider : MainAPI() {
 
 data class LinkElement(
     @JsonProperty("src") val src: String
-)
-
-data class MovieSearchResponse(
-    val name: String,
-    val url: String,
-    val provider: String,
-    val type: TvType,
-    val poster: String,
-    val year: Int?,
-    val description: String? // Dodaj opis
 )
