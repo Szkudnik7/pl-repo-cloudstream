@@ -21,28 +21,27 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
-        val lists = document.select(".item-list")
+        val lists = document.select(".mostPopular .list") // Zaktualizowano selektor
         val categories = ArrayList<HomePageList>()
 
-        for (l in lists) {
-            val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim())
-            val items = l.select(".poster").map { i ->
-                val a = i.parent()!!
-                val name = a.attr("title")
-                val href = a.attr("href")
-                val poster = i.select("img[src]").attr("src")
-                val year = a.select(".year").text().toIntOrNull()
-                MovieSearchResponse(
-                    name,
-                    href,
-                    this.name,
-                    TvType.Movie,
-                    poster,
-                    year
-                )
-            }
-            categories.add(HomePageList(title, items))
+        // Użycie stałej nazwy kategorii, ponieważ nie ma nagłówków
+        val title = "Gorące Filmy!"
+        val items = lists.select("li").map { item ->
+            val name = item.select(".scope_right .title a").text()
+            val href = mainUrl + item.select(".scope_right .title a").attr("href")
+            val poster = item.select(".scope_left img[src]").attr("src")
+            val year = item.select(".info-categories .cates").text().substringBefore("|").trim().toIntOrNull() // Wydobycie roku
+
+            MovieSearchResponse(
+                name,
+                href,
+                this.name,
+                TvType.Movie,
+                poster,
+                year
+            )
         }
+        categories.add(HomePageList(title, items))
         return HomePageResponse(categories)
     }
 
@@ -50,8 +49,8 @@ open class EkinoProvider : MainAPI() {
         val url = "$mainUrl/wyszukiwarka?phrase=$query"
         val document = app.get(url).document
         val lists = document.select("#advanced-search > div")
-        val movies = lists[1].select(".movie") // Use the correct class for movies
-        val series = lists[3].select(".tv-series") // Assuming there's a class for series
+        val movies = lists[1].select(".movie") // Użyj poprawnej klasy dla filmów
+        val series = lists[3].select(".tv-series") // Zakładając, że istnieje klasa dla seriali
 
         if (movies.isEmpty() && series.isEmpty()) return emptyList()
 
@@ -134,7 +133,7 @@ open class EkinoProvider : MainAPI() {
             app.get(data).document.select("#link-list").first()
         else Jsoup.parse(data)
 
-        document?.select(".link-to-video")?.forEach { item -> // Changed from apmap to forEach
+        document?.select(".link-to-video")?.forEach { item ->
             val decoded = base64Decode(item.select("a").attr("data-iframe"))
             val link = tryParseJson<LinkElement>(decoded)?.src ?: return@forEach
             loadExtractor(link, subtitleCallback, callback)
