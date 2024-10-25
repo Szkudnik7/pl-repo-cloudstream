@@ -22,7 +22,7 @@ class EkinoProvider : MainAPI() {
 
     private val interceptor = CloudflareKiller()
 
-    override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePageResponse {
+    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
         val lists = document.select(".mostPopular ul.list")
         val categories = ArrayList<HomePageList>()
@@ -34,13 +34,15 @@ class EkinoProvider : MainAPI() {
                 val href = a.attr("href")
                 val poster = i.select("img[src]").attr("src")
                 val year = a.select(".year").text().toIntOrNull()
+                val banner = i.select(".banner-selector").attr("src") // Dostosuj selektor do banera
                 MovieSearchResponse(
                     name,
                     href,
                     this.name,
                     TvType.Movie,
                     poster,
-                    year
+                    year,
+                    banner // Dodaj baner do odpowiedzi
                 )
             }
             categories.add(HomePageList(title, items))
@@ -48,37 +50,41 @@ class EkinoProvider : MainAPI() {
         return HomePageResponse(categories)
     }
 
-
-    
     override suspend fun search(query: String): List<SearchResponse> {
-        val url = "$mainUrl/wyszukaj?phrase=$query"
-        val document = app.get(url, interceptor = interceptor).document
-        val lists = document.select("#advanced-search > div")
-        val movies = lists[1].select("div:not(.clearfix)")
-        val series = lists[3].select("div:not(.clearfix)")
-        if (movies.isEmpty() && series.isEmpty()) return ArrayList()
-        fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
-            return items.mapNotNull { i ->
-                val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val img =
-                    i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
-                val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
-                if (type === TvType.TvSeries) {
-                    TvSeriesSearchResponse(
-                        name,
-                        properUrl(href)!!,
-                        this.name,
-                        type,
-                        properUrl(img)!!,
-                        null,
-                        posterHeaders = interceptor.getCookieHeaders(url).toMap()
-                    )
-                } else {
-                    MovieSearchResponse(name, properUrl(href)!!, this.name, type, properUrl(img)!!, null, posterHeaders = interceptor.getCookieHeaders(url).toMap())
-                }
+        // Przygotuj dane do wysłania
+        val params = mapOf("q" to query)
+        val response = app.post("$mainUrl/search/qf", params)
+
+        // Parsowanie dokumentu
+        val document = response.document
+        val lists = document.select("#movie-result > div")
+
+        // Zakładając, że wyniki są w divach wewnątrz lists
+        val movies = lists.select("div.movie-item") // Dostosuj selektor do struktury HTML
+
+        if (movies.isEmpty()) return emptyList()
+
+        // Funkcja do przetwarzania wyników
+        fun getVideos(items: Elements): List<SearchResponse> {
+            return items.mapNotNull { item ->
+                val href = item.selectFirst("a")?.attr("href") ?: return@mapNotNull null
+                val img = item.selectFirst("img[src]")?.attr("src")
+                val name = item.selectFirst(".title")?.text() ?: return@mapNotNull null
+                val banner = item.selectFirst(".banner-selector")?.attr("src") // Dostosuj selektor do banera
+
+                MovieSearchResponse(
+                    name,
+                    properUrl(href)!!,
+                    this.name,
+                    TvType.Movie,
+                    properUrl(img),
+                    null,
+                    properUrl(banner) // Dodaj baner do odpowiedzi
+                )
             }
         }
-        return getVideos(TvType.Movie, movies) + getVideos(TvType.TvSeries, series)
+
+        return getVideos(movies)
     }
 
     override suspend fun load(url: String): LoadResponse {
@@ -92,10 +98,11 @@ class EkinoProvider : MainAPI() {
         var title = document.select("span[itemprop=name]").text()
         val data = document.select("#link-list").outerHtml()
         val posterUrl = document.select("#single-poster > img").attr("src")
+        val bannerUrl = document.select(".banner-selector").attr("src") // Dostosuj selektor do banera
         val plot = document.select(".description").text()
         val episodesElements = document.select("#episode-list a[href]")
         if (episodesElements.isEmpty()) {
-            return MovieLoadResponse(title, properUrl(url)!!, name, TvType.Movie, data, properUrl(posterUrl)!!, null, plot)
+            return MovieLoadResponse(title, properUrl(url)!!, name, TvType.Movie, data, properUrl(posterUrl)!!, properUrl(bannerUrl)!!, plot)
         }
         title = document.selectFirst(".info")?.parent()?.select("h2")?.text()!!
         val episodes = episodesElements.mapNotNull { episode ->
@@ -117,7 +124,7 @@ class EkinoProvider : MainAPI() {
             TvType.TvSeries,
             episodes,
             properUrl(posterUrl)!!,
-            null,
+            properUrl(bannerUrl)!!, // Dodaj baner do odpowiedzi
             plot
         )
     }
@@ -134,9 +141,9 @@ class EkinoProvider : MainAPI() {
             app.get(properUrl(data)!!).document.select("#link-list").first()
         else Jsoup.parse(data)
 
-        document?.select(".link-to-video")?.apmap { item ->
+        document?.select(".link-to-video")?.forEach { item ->
             val decoded = base64Decode(item.select("a").attr("data-iframe"))
-            val link = tryParseJson<LinkElement>(decoded)?.src ?: return@apmap
+            val link = tryParseJson<LinkElement>(decoded)?.src ?: return@forEach
             loadExtractor(link, subtitleCallback, callback)
         }
         return true
@@ -156,4 +163,36 @@ class EkinoProvider : MainAPI() {
 
 data class LinkElement(
     @JsonProperty("src") val src: String
+)
+
+data class MovieSearchResponse(
+    val title: String,
+    val url: String,
+    val provider: String,
+    val type: TvType,
+    val posterUrl: String,
+    val year: Int?,
+    val bannerUrl: String? // Dodano pole na baner
+)
+
+data class MovieLoadResponse(
+    val title: String,
+    val url: String,
+    val provider: String,
+    val type: TvType,
+    val data: String,
+    val posterUrl: String,
+    val bannerUrl: String, // Dodano pole na baner
+    val plot: String
+)
+
+data class TvSeriesLoadResponse(
+    val title: String,
+    val url: String,
+    val provider: String,
+    val type: TvType,
+    val episodes: List<Episode>,
+    val posterUrl: String,
+    val bannerUrl: String, // Dodano pole na baner
+    val plot: String
 )
