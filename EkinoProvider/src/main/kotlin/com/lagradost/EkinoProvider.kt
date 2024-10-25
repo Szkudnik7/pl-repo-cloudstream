@@ -54,8 +54,10 @@ class EkinoProvider : MainAPI() {
         val url = "$mainUrl/wyszukaj?phrase=$query"
         val document = app.get(url, interceptor = interceptor).document
         val lists = document.select("#advanced-search > div")
-        val movies = lists[1].select("div:not(.clearfix)")
-        val series = lists[3].select("div:not(.clearfix)")
+
+        // Zmiana w indeksach
+        val movies = lists.getOrNull(1)?.select("div:not(.clearfix)") ?: Elements()
+        val series = lists.getOrNull(3)?.select("div:not(.clearfix)") ?: Elements()
 
         fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
             return items.mapNotNull { i ->
@@ -98,9 +100,9 @@ class EkinoProvider : MainAPI() {
             throw RuntimeException("This page seems to be locked behind a login wall on the website, unable to scrape it. If it is not, please report it.")
         }
 
-        var title = document.select("span[itemprop=name]").text()
+        var title = document.select("span[itemprop=name]").text().ifEmpty { document.select("h1").text() }
         val data = document.select("#link-list").outerHtml()
-        val posterUrl = document.select("#single-poster > img").attr("src")
+        val posterUrl = document.select("#single-poster img").attr("src")
         val plot = document.select(".description").text()
         val episodesElements = document.select("#episode-list a[href]")
 
