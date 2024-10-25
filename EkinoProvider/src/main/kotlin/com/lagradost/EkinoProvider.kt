@@ -25,7 +25,6 @@ open class EkinoProvider : MainAPI() {
             val response = app.get(url, headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"))
             response.document
         } catch (e: Exception) {
-            // Log the exception for debugging
             e.printStackTrace()
             null
         }
@@ -33,16 +32,14 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document = fetchDocument(mainUrl) ?: return HomePageResponse(emptyList())
-        val lists = document.select(".swiper-slide") // Adjust if needed
+        val sliderItems = document.select("#posters a")
         val categories = ArrayList<HomePageList>()
 
         val title = "Nowości"
-        val items = lists.mapNotNull { item ->
-            val a = item.select("a").first() ?: return@mapNotNull null
-            val name = a.attr("alt") // Title
-            val href = a.attr("href") // Link
-            val poster = item.select("img[src]").attr("src") // Poster
-            val year = item.select(".m-more").text().split("|").firstOrNull()?.trim()?.toIntOrNull() // Year
+        val items = sliderItems.mapNotNull { item ->
+            val name = item.attr("original-title")
+            val href = item.attr("href")
+            val poster = item.select("img").attr("src")
 
             MovieSearchResponse(
                 name,
@@ -50,7 +47,7 @@ open class EkinoProvider : MainAPI() {
                 this.name,
                 TvType.Movie,
                 poster,
-                year
+                null
             )
         }
 
@@ -59,37 +56,24 @@ open class EkinoProvider : MainAPI() {
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val url = "$mainUrl/wyszukiwarka?phrase=$query"
+        val url = "$mainUrl/search/qf?q=$query"
         val document = fetchDocument(url) ?: return emptyList()
-        val lists = document.select("#advanced-search > div")
-        val movies = lists[1].select("div:not(.clearfix)")
-        val series = lists[3].select("div:not(.clearfix)")
+        val searchResults = document.select("#movie-result a")
 
-        if (movies.isEmpty() && series.isEmpty()) return emptyList()
+        return searchResults.mapNotNull { result ->
+            val href = result.attr("href")
+            val img = result.select("img").attr("src")
+            val name = result.attr("title")
 
-        fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
-            return items.mapNotNull { i ->
-                val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val img = i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
-                val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
-
-                if (type === TvType.TvSeries) {
-                    TvSeriesSearchResponse(
-                        name,
-                        href,
-                        this.name,
-                        type,
-                        img,
-                        null,
-                        null
-                    )
-                } else {
-                    MovieSearchResponse(name, href, this.name, type, img, null)
-                }
-            }
+            MovieSearchResponse(
+                name,
+                href,
+                this.name,
+                TvType.Movie,
+                img,
+                null
+            )
         }
-
-        return getVideos(TvType.Movie, movies) + getVideos(TvType.TvSeries, series)
     }
 
     override suspend fun load(url: String): LoadResponse {
@@ -97,20 +81,19 @@ open class EkinoProvider : MainAPI() {
         val documentTitle = document.select("title").text().trim()
 
         if (documentTitle.startsWith("Logowanie")) {
-            throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape it. If it is not please report it.")
+            throw RuntimeException("Strona wymaga zalogowania się, nie można kontynuować.")
         }
 
-        var title = document.select("span[itemprop=name]").text()
-        val data = document.select("#link-list").outerHtml()
-        val posterUrl = document.select("#single-poster > img").attr("src")
-        val plot = document.select(".description").text()
+        var title = document.select(".scope_right .title").text()
+        val plot = document.select(".movieDesc").text()
+        val posterUrl = document.select(".scope_left img").attr("src")
         val episodesElements = document.select("#episode-list a[href]")
 
         if (episodesElements.isEmpty()) {
-            return MovieLoadResponse(title, url, name, TvType.Movie, data, posterUrl, null, plot)
+            return MovieLoadResponse(title, url, name, TvType.Movie, null, posterUrl, null, plot)
         }
 
-        title = document.selectFirst(".info")?.parent()?.select("h2")?.text()!!
+        title = document.selectFirst(".scope_right .title")?.text() ?: "Nieznany tytuł"
         val episodes = episodesElements.mapNotNull { episode ->
             val e = episode.text()
             val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(e) ?: return@mapNotNull null
