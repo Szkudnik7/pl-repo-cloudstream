@@ -16,9 +16,13 @@ open class EkinoProvider : MainAPI() {
     override val usesWebView = true
     override val supportedTypes = setOf(TvType.TvSeries, TvType.Movie)
 
-    private suspend fun fetchDocument(url: String): Document? {
+    private suspend fun fetchDocument(url: String, params: Map<String, String>? = null): Document? {
         return try {
-            val response = app.get(url, headers = mapOf("User-Agent" to "Mozilla/5.0"))
+            val response = if (params != null) {
+                app.post(url, params, headers = mapOf("User-Agent" to "Mozilla/5.0"))
+            } else {
+                app.get(url, headers = mapOf("User-Agent" to "Mozilla/5.0"))
+            }
             response.document
         } catch (e: Exception) {
             println("Error fetching document: ${e.localizedMessage}")
@@ -54,8 +58,9 @@ open class EkinoProvider : MainAPI() {
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val url = "$mainUrl/search/qf/?q=$query"
-        val document = fetchDocument(url) ?: return emptyList()
+        val url = "$mainUrl/search/qf"
+        val params = mapOf("q" to query)
+        val document = fetchDocument(url, params) ?: return emptyList()
 
         // Debug: Wydrukuj HTML dokumentu
         println("HTML Document: ${document.outerHtml()}")
