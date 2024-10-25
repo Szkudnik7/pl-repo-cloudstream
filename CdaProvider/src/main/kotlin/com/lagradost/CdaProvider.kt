@@ -27,7 +27,7 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
     val document = app.get(mainUrl, interceptor = interceptor).document
 
     // Select the container with items from the webpage
-    val lists = document.select("div.box_item")
+    val lists = document.select("div.item_1.items")
     val categories = ArrayList<HomePageList>()
     
     // Iterate over the selected items to extract details
