@@ -16,7 +16,7 @@ class EkinoProvider : MainAPI() {
     override var lang = "pl"
     override val hasMainPage = true
     override val usesWebView = true
-    override val supportedTypes = setOf(TvType.TvSeries, TvType.Movie)
+    override val supportedTypes = setOf(TvType.Movie, TvType.TvSeries)
 
     private val interceptor = CloudflareKiller()
 
@@ -38,10 +38,10 @@ class EkinoProvider : MainAPI() {
                 items.add(
                     MovieSearchResponse(
                         title = itemName,
-                        url = properUrl(href),
+                        url = properUrl(href) ?: "",
                         apiName = this.name,
                         type = TvType.Movie,
-                        posterUrl = properUrl(poster),
+                        posterUrl = properUrl(poster) ?: "",
                         posterHeaders = interceptor.getCookieHeaders(mainUrl).toMap()
                     )
                 )
@@ -74,21 +74,22 @@ class EkinoProvider : MainAPI() {
             val name = item.selectFirst(".title")?.text() ?: continue
 
             videos.add(
-                when (type) {
-                    TvType.TvSeries -> TvSeriesSearchResponse(
+                if (type == TvType.TvSeries) {
+                    TvSeriesSearchResponse(
                         name = name,
-                        url = properUrl(href),
+                        url = properUrl(href) ?: "",
                         apiName = this.name,
                         type = type,
-                        posterUrl = properUrl(img),
+                        posterUrl = properUrl(img) ?: "",
                         posterHeaders = interceptor.getCookieHeaders(url).toMap()
                     )
-                    else -> MovieSearchResponse(
+                } else {
+                    MovieSearchResponse(
                         name = name,
-                        url = properUrl(href),
+                        url = properUrl(href) ?: "",
                         apiName = this.name,
                         type = type,
-                        posterUrl = properUrl(img),
+                        posterUrl = properUrl(img) ?: "",
                         posterHeaders = interceptor.getCookieHeaders(url).toMap()
                     )
                 }
@@ -98,7 +99,7 @@ class EkinoProvider : MainAPI() {
     }
 
     override suspend fun load(url: String): LoadResponse {
-        val document = app.get(url, interceptor = interceptor).document
+        val document: Document = app.get(url, interceptor = interceptor).document
         if (document.title().startsWith("Logowanie")) {
             throw RuntimeException("This page requires login. Unable to scrape.")
         }
@@ -112,11 +113,11 @@ class EkinoProvider : MainAPI() {
         return if (episodesElements.isEmpty()) {
             MovieLoadResponse(
                 title = title,
-                url = properUrl(url),
+                url = properUrl(url) ?: "",
                 apiName = name,
                 type = TvType.Movie,
                 data = data,
-                posterUrl = properUrl(posterUrl),
+                posterUrl = properUrl(posterUrl) ?: "",
                 plot = plot
             )
         } else {
@@ -129,7 +130,7 @@ class EkinoProvider : MainAPI() {
 
                 episodes.add(
                     Episode(
-                        url = properUrl(episode.attr("href")),
+                        url = properUrl(episode.attr("href")) ?: "",
                         name = episodeTitle.split("]").last().trim(),
                         season = season,
                         episode = episodeNumber
@@ -139,11 +140,11 @@ class EkinoProvider : MainAPI() {
 
             TvSeriesLoadResponse(
                 title = title,
-                url = properUrl(url),
+                url = properUrl(url) ?: "",
                 apiName = name,
                 type = TvType.TvSeries,
                 episodes = episodes,
-                posterUrl = properUrl(posterUrl),
+                posterUrl = properUrl(posterUrl) ?: "",
                 plot = plot
             )
         }
@@ -172,8 +173,8 @@ class EkinoProvider : MainAPI() {
         return true
     }
 
-    private fun properUrl(inUrl: String?): String {
-        return fixUrl(inUrl?.replace("^URL".toRegex(), "/") ?: "")
+    private fun properUrl(inUrl: String?): String? {
+        return inUrl?.let { fixUrl(it.replace("^URL".toRegex(), "/")) }
     }
 }
 
