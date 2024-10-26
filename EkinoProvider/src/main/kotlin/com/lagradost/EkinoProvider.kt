@@ -181,7 +181,6 @@ data class LinkElement(
     @JsonProperty("src") val src: String
 )
 
-// Upewnij się, że poniższe klasy są zdefiniowane w Twoim projekcie
 data class MovieSearchResponse(
     val title: String,
     val url: String,
