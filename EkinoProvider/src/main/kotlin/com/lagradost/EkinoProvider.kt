@@ -24,13 +24,13 @@ class EkinoProvider : MainAPI() {
     private val interceptor = CloudflareKiller()
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val document = app.get(mainUrl).document
-        val categories = mutableListOf<HomePageList>()
+        val document: Document = app.get(mainUrl).document
+        val categories = ArrayList<HomePageList>()
         val listElements = document.select(".mainWrap")
 
         for (listElement in listElements) {
             val title = listElement.select("h3").text().capitalize()
-            val items = mutableListOf<SearchResponse>()
+            val items = ArrayList<SearchResponse>()
             val elements = listElement.select(".nowa-poster")
 
             for (element in elements) {
@@ -42,10 +42,10 @@ class EkinoProvider : MainAPI() {
                     items.add(
                         MovieSearchResponse(
                             title = itemName,
-                            url = properUrl(href) ?: continue,
+                            url = properUrl(href) ?: "",
                             apiName = this.name,
                             type = TvType.Movie,
-                            posterUrl = properUrl(poster) ?: continue,
+                            posterUrl = properUrl(poster) ?: "",
                             posterHeaders = interceptor.getCookieHeaders(mainUrl).toMap()
                         )
                     )
@@ -58,9 +58,9 @@ class EkinoProvider : MainAPI() {
 
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/wyszukaj?phrase=$query"
-        val document = app.get(url, interceptor = interceptor).document
+        val document: Document = app.get(url, interceptor = interceptor).document
         val lists = document.select("#advanced-search > div")
-        val searchResults = mutableListOf<SearchResponse>()
+        val searchResults = ArrayList<SearchResponse>()
 
         val movies = lists.getOrNull(1)?.select("div:not(.clearfix)") ?: Elements()
         val series = lists.getOrNull(3)?.select("div:not(.clearfix)") ?: Elements()
@@ -72,33 +72,32 @@ class EkinoProvider : MainAPI() {
     }
 
     private fun getVideos(type: TvType, items: Elements, url: String): List<SearchResponse> {
-        val videos = mutableListOf<SearchResponse>()
+        val videos = ArrayList<SearchResponse>()
         for (item in items) {
             val href = item.selectFirst("a")?.attr("href")
             val img = item.selectFirst("a > img")?.attr("src")?.replace("/thumb/", "/big/")
             val name = item.selectFirst(".title")?.text()
 
             if (href != null && img != null && name != null) {
-                videos.add(
-                    when (type) {
-                        TvType.TvSeries -> TvSeriesSearchResponse(
-                            name = name,
-                            url = properUrl(href) ?: continue,
-                            apiName = this.name,
-                            type = type,
-                            posterUrl = properUrl(img) ?: continue,
-                            posterHeaders = interceptor.getCookieHeaders(url).toMap()
-                        )
-                        else -> MovieSearchResponse(
-                            name = name,
-                            url = properUrl(href) ?: continue,
-                            apiName = this.name,
-                            type = type,
-                            posterUrl = properUrl(img) ?: continue,
-                            posterHeaders = interceptor.getCookieHeaders(url).toMap()
-                        )
-                    }
-                )
+                val searchResponse = when (type) {
+                    TvType.TvSeries -> TvSeriesSearchResponse(
+                        name = name,
+                        url = properUrl(href) ?: "",
+                        apiName = this.name,
+                        type = type,
+                        posterUrl = properUrl(img) ?: "",
+                        posterHeaders = interceptor.getCookieHeaders(url).toMap()
+                    )
+                    else -> MovieSearchResponse(
+                        name = name,
+                        url = properUrl(href) ?: "",
+                        apiName = this.name,
+                        type = type,
+                        posterUrl = properUrl(img) ?: "",
+                        posterHeaders = interceptor.getCookieHeaders(url).toMap()
+                    )
+                }
+                videos.add(searchResponse)
             }
         }
         return videos
@@ -119,7 +118,7 @@ class EkinoProvider : MainAPI() {
         return if (episodesElements.isEmpty()) {
             MovieLoadResponse(
                 title = title,
-                url = properUrl(url) ?: throw RuntimeException("Invalid URL"),
+                url = properUrl(url) ?: "",
                 apiName = name,
                 type = TvType.Movie,
                 data = data,
@@ -127,14 +126,14 @@ class EkinoProvider : MainAPI() {
                 plot = plot
             )
         } else {
-            val episodes = mutableListOf<Episode>()
+            val episodes = ArrayList<Episode>()
             for (episode in episodesElements) {
                 val episodeTitle = episode.text()
                 val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(episodeTitle)
                 if (regex != null) {
                     episodes.add(
                         Episode(
-                            url = properUrl(episode.attr("href")) ?: continue,
+                            url = properUrl(episode.attr("href")) ?: "",
                             name = episodeTitle.split("]").last().trim(),
                             season = regex.groupValues[1].toIntOrNull(),
                             episode = regex.groupValues[2].toIntOrNull()
@@ -145,7 +144,7 @@ class EkinoProvider : MainAPI() {
 
             TvSeriesLoadResponse(
                 title = title,
-                url = properUrl(url) ?: throw RuntimeException("Invalid URL"),
+                url = properUrl(url) ?: "",
                 apiName = name,
                 type = TvType.TvSeries,
                 episodes = episodes,
@@ -163,7 +162,7 @@ class EkinoProvider : MainAPI() {
     ): Boolean {
         val document = when {
             data.startsWith("http") -> app.get(data).document
-            data.startsWith("URL") -> app.get(properUrl(data)!!).document
+            data.startsWith("URL") -> app.get(properUrl(data) ?: "").document
             else -> Jsoup.parse(data)
         }
         val videoLinks = document.select(".link-to-video a[data-iframe]")
