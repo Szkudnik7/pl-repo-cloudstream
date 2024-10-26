@@ -18,33 +18,31 @@ class EkinoProvider : MainAPI() {
     override val usesWebView: Boolean = true
     override val supportedTypes: Set<TvType> = setOf(TvType.Movie, TvType.TvSeries)
 
-    private val interceptor: CloudflareKiller = CloudflareKiller()
+    private val interceptor = CloudflareKiller()
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document: Document = app.get(mainUrl).document
-        val categories: MutableList<HomePageList> = mutableListOf()
-        val listElements: Elements = document.select(".mainWrap")
+        val categories = mutableListOf<HomePageList>()
+        val listElements = document.select(".mainWrap")
 
         for (listElement in listElements) {
-            val title: String = listElement.select("h3").text().capitalize()
-            val items: MutableList<SearchResponse> = mutableListOf()
-            val elements: Elements = listElement.select(".nowa-poster")
+            val title = listElement.select("h3").text().capitalize()
+            val items = mutableListOf<SearchResponse>()
+            val elements = listElement.select(".nowa-poster")
 
             for (element in elements) {
-                val poster: String = element.selectFirst("img")?.attr("src") ?: continue
-                val href: String = element.selectFirst("a")?.attr("href") ?: continue
-                val itemName: String = element.selectFirst("a")?.attr("title") ?: continue
+                val poster = element.selectFirst("img")?.attr("src") ?: continue
+                val href = element.selectFirst("a")?.attr("href") ?: continue
+                val itemName = element.selectFirst("a")?.attr("title") ?: continue
 
-                items.add(
-                    MovieSearchResponse(
-                        title = itemName,
-                        url = properUrl(href) ?: "",
-                        apiName = this.name,
-                        type = TvType.Movie,
-                        posterUrl = properUrl(poster) ?: "",
-                        posterHeaders = interceptor.getCookieHeaders(mainUrl).toMap()
-                    )
-                )
+                items.add(MovieSearchResponse(
+                    title = itemName,
+                    url = properUrl(href) ?: "",
+                    apiName = this.name,
+                    type = TvType.Movie,
+                    posterUrl = properUrl(poster) ?: "",
+                    posterHeaders = interceptor.getCookieHeaders(mainUrl).toMap()
+                ))
             }
             categories.add(HomePageList(title, items))
         }
@@ -52,13 +50,13 @@ class EkinoProvider : MainAPI() {
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val url: String = "$mainUrl/wyszukaj?phrase=$query"
+        val url = "$mainUrl/wyszukaj?phrase=$query"
         val document: Document = app.get(url, interceptor = interceptor).document
-        val lists: Elements = document.select("#advanced-search > div")
-        val searchResults: MutableList<SearchResponse> = mutableListOf()
+        val lists = document.select("#advanced-search > div")
+        val searchResults = mutableListOf<SearchResponse>()
 
-        val movies: Elements = lists.getOrNull(1)?.select("div:not(.clearfix)") ?: Elements()
-        val series: Elements = lists.getOrNull(3)?.select("div:not(.clearfix)") ?: Elements()
+        val movies = lists.getOrNull(1)?.select("div:not(.clearfix)") ?: Elements()
+        val series = lists.getOrNull(3)?.select("div:not(.clearfix)") ?: Elements()
 
         searchResults.addAll(getVideos(TvType.Movie, movies, url))
         searchResults.addAll(getVideos(TvType.TvSeries, series, url))
@@ -67,11 +65,11 @@ class EkinoProvider : MainAPI() {
     }
 
     private fun getVideos(type: TvType, items: Elements, url: String): List<SearchResponse> {
-        val videos: MutableList<SearchResponse> = mutableListOf()
+        val videos = mutableListOf<SearchResponse>()
         for (item in items) {
-            val href: String = item.selectFirst("a")?.attr("href") ?: continue
-            val img: String = item.selectFirst("a > img")?.attr("src")?.replace("/thumb/", "/big/") ?: continue
-            val name: String = item.selectFirst(".title")?.text() ?: continue
+            val href = item.selectFirst("a")?.attr("href") ?: continue
+            val img = item.selectFirst("a > img")?.attr("src")?.replace("/thumb/", "/big/") ?: continue
+            val name = item.selectFirst(".title")?.text() ?: continue
 
             videos.add(
                 when (type) {
@@ -103,11 +101,11 @@ class EkinoProvider : MainAPI() {
             throw RuntimeException("This page requires login. Unable to scrape.")
         }
 
-        val title: String = document.select("span[itemprop=name]").text().ifEmpty { document.select("h1").text() }
-        val data: String = document.select("#link-list").outerHtml()
-        val posterUrl: String = document.select("#single-poster img").attr("src")
-        val plot: String = document.select(".description").text()
-        val episodesElements: Elements = document.select("#episode-list a[href]")
+        val title = document.select("span[itemprop=name]").text().ifEmpty { document.select("h1").text() }
+        val data = document.select("#link-list").outerHtml()
+        val posterUrl = document.select("#single-poster img").attr("src")
+        val plot = document.select(".description").text()
+        val episodesElements = document.select("#episode-list a[href]")
 
         return if (episodesElements.isEmpty()) {
             MovieLoadResponse(
@@ -120,21 +118,19 @@ class EkinoProvider : MainAPI() {
                 plot = plot
             )
         } else {
-            val episodes: MutableList<Episode> = mutableListOf()
+            val episodes = mutableListOf<Episode>()
             for (episode in episodesElements) {
-                val episodeTitle: String = episode.text()
+                val episodeTitle = episode.text()
                 val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(episodeTitle)
-                val season: Int? = regex?.groupValues?.getOrNull(1)?.toIntOrNull()
-                val episodeNumber: Int? = regex?.groupValues?.getOrNull(2)?.toIntOrNull()
+                val season = regex?.groupValues?.getOrNull(1)?.toIntOrNull()
+                val episodeNumber = regex?.groupValues?.getOrNull(2)?.toIntOrNull()
 
-                episodes.add(
-                    Episode(
-                        url = properUrl(episode.attr("href")) ?: "",
-                        name = episodeTitle.split("]").last().trim(),
-                        season = season,
-                        episode = episodeNumber
-                    )
-                )
+                episodes.add(Episode(
+                    url = properUrl(episode.attr("href")) ?: "",
+                    name = episodeTitle.split("]").last().trim(),
+                    season = season,
+                    episode = episodeNumber
+                ))
             }
 
             TvSeriesLoadResponse(
@@ -155,15 +151,15 @@ class EkinoProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val document: Document = when {
+        val document = when {
             data.startsWith("http") -> app.get(data).document
             data.startsWith("URL") -> app.get(properUrl(data) ?: "").document
             else -> Jsoup.parse(data)
         }
-        val videoLinks: Elements = document.select(".link-to-video a[data-iframe]")
+        val videoLinks = document.select(".link-to-video a[data-iframe]")
 
         for (item in videoLinks) {
-            val decoded: String = base64Decode(item.attr("data-iframe"))
+            val decoded = base64Decode(item.attr("data-iframe"))
             val link = tryParseJson<LinkElement>(decoded)?.src
             if (link != null) {
                 loadExtractor(link, subtitleCallback, callback)
