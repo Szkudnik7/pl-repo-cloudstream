@@ -16,10 +16,7 @@ class EkinoProvider : MainAPI() {
     override var lang = "pl"
     override val hasMainPage = true
     override val usesWebView = true
-    override val supportedTypes = setOf(
-        TvType.TvSeries,
-        TvType.Movie
-    )
+    override val supportedTypes = setOf(TvType.TvSeries, TvType.Movie)
 
     private val interceptor = CloudflareKiller()
 
@@ -34,22 +31,20 @@ class EkinoProvider : MainAPI() {
             val elements = listElement.select(".nowa-poster")
 
             for (element in elements) {
-                val poster = element.selectFirst("img")?.attr("src")
-                val href = element.selectFirst("a")?.attr("href")
-                val itemName = element.selectFirst("a")?.attr("title")
+                val poster = element.selectFirst("img")?.attr("src") ?: continue
+                val href = element.selectFirst("a")?.attr("href") ?: continue
+                val itemName = element.selectFirst("a")?.attr("title") ?: continue
 
-                if (poster != null && href != null && itemName != null) {
-                    items.add(
-                        MovieSearchResponse(
-                            title = itemName,
-                            url = properUrl(href) ?: "",
-                            apiName = this.name,
-                            type = TvType.Movie,
-                            posterUrl = properUrl(poster) ?: "",
-                            posterHeaders = interceptor.getCookieHeaders(mainUrl).toMap()
-                        )
+                items.add(
+                    MovieSearchResponse(
+                        title = itemName,
+                        url = properUrl(href),
+                        apiName = this.name,
+                        type = TvType.Movie,
+                        posterUrl = properUrl(poster),
+                        posterHeaders = interceptor.getCookieHeaders(mainUrl).toMap()
                     )
-                }
+                )
             }
             categories.add(HomePageList(title, items))
         }
@@ -74,31 +69,30 @@ class EkinoProvider : MainAPI() {
     private fun getVideos(type: TvType, items: Elements, url: String): List<SearchResponse> {
         val videos = ArrayList<SearchResponse>()
         for (item in items) {
-            val href = item.selectFirst("a")?.attr("href")
-            val img = item.selectFirst("a > img")?.attr("src")?.replace("/thumb/", "/big/")
-            val name = item.selectFirst(".title")?.text()
+            val href = item.selectFirst("a")?.attr("href") ?: continue
+            val img = item.selectFirst("a > img")?.attr("src")?.replace("/thumb/", "/big/") ?: continue
+            val name = item.selectFirst(".title")?.text() ?: continue
 
-            if (href != null && img != null && name != null) {
-                val searchResponse = when (type) {
+            videos.add(
+                when (type) {
                     TvType.TvSeries -> TvSeriesSearchResponse(
                         name = name,
-                        url = properUrl(href) ?: "",
+                        url = properUrl(href),
                         apiName = this.name,
                         type = type,
-                        posterUrl = properUrl(img) ?: "",
+                        posterUrl = properUrl(img),
                         posterHeaders = interceptor.getCookieHeaders(url).toMap()
                     )
                     else -> MovieSearchResponse(
                         name = name,
-                        url = properUrl(href) ?: "",
+                        url = properUrl(href),
                         apiName = this.name,
                         type = type,
-                        posterUrl = properUrl(img) ?: "",
+                        posterUrl = properUrl(img),
                         posterHeaders = interceptor.getCookieHeaders(url).toMap()
                     )
                 }
-                videos.add(searchResponse)
-            }
+            )
         }
         return videos
     }
@@ -118,7 +112,7 @@ class EkinoProvider : MainAPI() {
         return if (episodesElements.isEmpty()) {
             MovieLoadResponse(
                 title = title,
-                url = properUrl(url) ?: "",
+                url = properUrl(url),
                 apiName = name,
                 type = TvType.Movie,
                 data = data,
@@ -130,21 +124,22 @@ class EkinoProvider : MainAPI() {
             for (episode in episodesElements) {
                 val episodeTitle = episode.text()
                 val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(episodeTitle)
-                if (regex != null) {
-                    episodes.add(
-                        Episode(
-                            url = properUrl(episode.attr("href")) ?: "",
-                            name = episodeTitle.split("]").last().trim(),
-                            season = regex.groupValues[1].toIntOrNull(),
-                            episode = regex.groupValues[2].toIntOrNull()
-                        )
+                val season = regex?.groupValues?.getOrNull(1)?.toIntOrNull()
+                val episodeNumber = regex?.groupValues?.getOrNull(2)?.toIntOrNull()
+
+                episodes.add(
+                    Episode(
+                        url = properUrl(episode.attr("href")),
+                        name = episodeTitle.split("]").last().trim(),
+                        season = season,
+                        episode = episodeNumber
                     )
-                }
+                )
             }
 
             TvSeriesLoadResponse(
                 title = title,
-                url = properUrl(url) ?: "",
+                url = properUrl(url),
                 apiName = name,
                 type = TvType.TvSeries,
                 episodes = episodes,
@@ -177,8 +172,8 @@ class EkinoProvider : MainAPI() {
         return true
     }
 
-    private fun properUrl(inUrl: String?): String? {
-        return inUrl?.let { fixUrl(it.replace("^URL".toRegex(), "/")) }
+    private fun properUrl(inUrl: String?): String {
+        return fixUrl(inUrl?.replace("^URL".toRegex(), "/") ?: "")
     }
 }
 
