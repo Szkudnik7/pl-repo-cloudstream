@@ -25,28 +25,32 @@ class EkinoProvider : MainAPI() {
 
     // Funkcja do pobierania głównej strony z listą kategorii i elementów
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val document = app.get(mainUrl).document
+        val document: Document = app.get(mainUrl).document
         val categories = ArrayList<HomePageList>()
+        val listElements: Elements = document.select(".mainWrap")
 
-        // Selekcja sekcji zawierających filmy lub seriale
-        val listElements = document.select(".mainWrap")
         for (listElement in listElements) {
-            val title = listElement.select("h3").text().capitalize() // Pobiera tytuł kategorii i kapitalizuje
+            val title = listElement.select("h3").text().capitalize()
+            val items = ArrayList<SearchResponse>()
+            val elements = listElement.select(".nowa-poster")
 
-            // Pobiera listę elementów z plakatami i linkami do filmów/seriali
-            val items = listElement.select(".nowa-poster").mapNotNull { i ->
-                val poster = i.selectFirst("img")?.attr("src") ?: return@mapNotNull null
-                val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val itemName = i.selectFirst("a")?.attr("title") ?: return@mapNotNull null
+            for (element in elements) {
+                val poster = element.selectFirst("img")?.attr("src")
+                val href = element.selectFirst("a")?.attr("href")
+                val itemName = element.selectFirst("a")?.attr("title")
                 
-                MovieSearchResponse(
-                    title = itemName,
-                    url = properUrl(href)!!,
-                    apiName = this.name,
-                    type = TvType.Movie,
-                    posterUrl = properUrl(poster)!!,
-                    posterHeaders = interceptor.getCookieHeaders(mainUrl).toMap()
-                )
+                if (poster != null && href != null && itemName != null) {
+                    items.add(
+                        MovieSearchResponse(
+                            title = itemName,
+                            url = properUrl(href)!!,
+                            apiName = this.name,
+                            type = TvType.Movie,
+                            posterUrl = properUrl(poster)!!,
+                            posterHeaders = interceptor.getCookieHeaders(mainUrl).toMap()
+                        )
+                    )
+                }
             }
             categories.add(HomePageList(title, items))
         }
@@ -56,47 +60,56 @@ class EkinoProvider : MainAPI() {
     // Funkcja do wyszukiwania filmów i seriali na stronie
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/wyszukaj?phrase=$query"
-        val document = app.get(url, interceptor = interceptor).document
-        val lists = document.select("#advanced-search > div")
+        val document: Document = app.get(url, interceptor = interceptor).document
+        val lists: Elements = document.select("#advanced-search > div")
+        val searchResults = ArrayList<SearchResponse>()
 
-        // Wybiera elementy dla filmów i seriali
-        val movies = lists.getOrNull(1)?.select("div:not(.clearfix)") ?: Elements()
-        val series = lists.getOrNull(3)?.select("div:not(.clearfix)") ?: Elements()
+        val movies: Elements = lists.getOrNull(1)?.select("div:not(.clearfix)") ?: Elements()
+        val series: Elements = lists.getOrNull(3)?.select("div:not(.clearfix)") ?: Elements()
 
-        fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
-            return items.mapNotNull { i ->
-                val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val img = i.selectFirst("a > img")?.attr("src")?.replace("/thumb/", "/big/") ?: return@mapNotNull null
-                val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
+        searchResults.addAll(getVideos(TvType.Movie, movies, url))
+        searchResults.addAll(getVideos(TvType.TvSeries, series, url))
+        
+        return searchResults
+    }
 
-                if (type == TvType.TvSeries) {
-                    TvSeriesSearchResponse(
-                        name = name,
-                        url = properUrl(href)!!,
-                        apiName = this.name,
-                        type = type,
-                        posterUrl = properUrl(img)!!,
-                        posterHeaders = interceptor.getCookieHeaders(url).toMap()
-                    )
-                } else {
-                    MovieSearchResponse(
-                        name = name,
-                        url = properUrl(href)!!,
-                        apiName = this.name,
-                        type = type,
-                        posterUrl = properUrl(img)!!,
-                        posterHeaders = interceptor.getCookieHeaders(url).toMap()
-                    )
-                }
+    private fun getVideos(type: TvType, items: Elements, url: String): List<SearchResponse> {
+        val videos = ArrayList<SearchResponse>()
+        for (item in items) {
+            val href = item.selectFirst("a")?.attr("href")
+            val img = item.selectFirst("a > img")?.attr("src")?.replace("/thumb/", "/big/")
+            val name = item.selectFirst(".title")?.text()
+
+            if (href != null && img != null && name != null) {
+                videos.add(
+                    if (type == TvType.TvSeries) {
+                        TvSeriesSearchResponse(
+                            name = name,
+                            url = properUrl(href)!!,
+                            apiName = this.name,
+                            type = type,
+                            posterUrl = properUrl(img)!!,
+                            posterHeaders = interceptor.getCookieHeaders(url).toMap()
+                        )
+                    } else {
+                        MovieSearchResponse(
+                            name = name,
+                            url = properUrl(href)!!,
+                            apiName = this.name,
+                            type = type,
+                            posterUrl = properUrl(img)!!,
+                            posterHeaders = interceptor.getCookieHeaders(url).toMap()
+                        )
+                    }
+                )
             }
         }
-
-        return getVideos(TvType.Movie, movies) + getVideos(TvType.TvSeries, series)
+        return videos
     }
 
     // Funkcja ładowania szczegółowych danych filmu/serialu
     override suspend fun load(url: String): LoadResponse {
-        val document = app.get(url, interceptor = interceptor).document
+        val document: Document = app.get(url, interceptor = interceptor).document
         if (document.title().startsWith("Logowanie")) {
             throw RuntimeException("This page requires login. Unable to scrape.")
         }
@@ -118,15 +131,20 @@ class EkinoProvider : MainAPI() {
                 plot = plot
             )
         } else {
-            val episodes = episodesElements.mapNotNull { episode ->
+            val episodes = ArrayList<Episode>()
+            for (episode in episodesElements) {
                 val episodeTitle = episode.text()
-                val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(episodeTitle) ?: return@mapNotNull null
-                Episode(
-                    url = properUrl(episode.attr("href"))!!,
-                    name = episodeTitle.split("]").last().trim(),
-                    season = regex.groupValues[1].toIntOrNull(),
-                    episode = regex.groupValues[2].toIntOrNull()
-                )
+                val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(episodeTitle)
+                if (regex != null) {
+                    episodes.add(
+                        Episode(
+                            url = properUrl(episode.attr("href"))!!,
+                            name = episodeTitle.split("]").last().trim(),
+                            season = regex.groupValues[1].toIntOrNull(),
+                            episode = regex.groupValues[2].toIntOrNull()
+                        )
+                    )
+                }
             }
 
             TvSeriesLoadResponse(
@@ -153,10 +171,14 @@ class EkinoProvider : MainAPI() {
             data.startsWith("URL") -> app.get(properUrl(data)!!).document
             else -> Jsoup.parse(data)
         }
-        document.select(".link-to-video a[data-iframe]").forEach { item ->
+        val videoLinks = document.select(".link-to-video a[data-iframe]")
+
+        for (item in videoLinks) {
             val decoded = base64Decode(item.attr("data-iframe"))
-            val link = tryParseJson<LinkElement>(decoded)?.src ?: return@forEach
-            loadExtractor(link, subtitleCallback, callback)
+            val link = tryParseJson<LinkElement>(decoded)?.src
+            if (link != null) {
+                loadExtractor(link, subtitleCallback, callback)
+            }
         }
         return true
     }
