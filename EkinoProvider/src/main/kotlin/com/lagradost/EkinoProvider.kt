@@ -22,12 +22,12 @@ class EkinoProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document: Document = app.get(mainUrl).document
-        val categories = ArrayList<HomePageList>()
+        val categories = mutableListOf<HomePageList>()
         val listElements = document.select(".mainWrap")
 
         for (listElement in listElements) {
             val title = listElement.select("h3").text().capitalize()
-            val items = ArrayList<SearchResponse>()
+            val items = mutableListOf<SearchResponse>()
             val elements = listElement.select(".nowa-poster")
 
             for (element in elements) {
@@ -55,7 +55,7 @@ class EkinoProvider : MainAPI() {
         val url = "$mainUrl/wyszukaj?phrase=$query"
         val document: Document = app.get(url, interceptor = interceptor).document
         val lists = document.select("#advanced-search > div")
-        val searchResults = ArrayList<SearchResponse>()
+        val searchResults = mutableListOf<SearchResponse>()
 
         val movies = lists.getOrNull(1)?.select("div:not(.clearfix)") ?: Elements()
         val series = lists.getOrNull(3)?.select("div:not(.clearfix)") ?: Elements()
@@ -67,15 +67,15 @@ class EkinoProvider : MainAPI() {
     }
 
     private fun getVideos(type: TvType, items: Elements, url: String): List<SearchResponse> {
-        val videos = ArrayList<SearchResponse>()
+        val videos = mutableListOf<SearchResponse>()
         for (item in items) {
             val href = item.selectFirst("a")?.attr("href") ?: continue
             val img = item.selectFirst("a > img")?.attr("src")?.replace("/thumb/", "/big/") ?: continue
             val name = item.selectFirst(".title")?.text() ?: continue
 
             videos.add(
-                if (type == TvType.TvSeries) {
-                    TvSeriesSearchResponse(
+                when (type) {
+                    TvType.TvSeries -> TvSeriesSearchResponse(
                         name = name,
                         url = properUrl(href) ?: "",
                         apiName = this.name,
@@ -83,9 +83,8 @@ class EkinoProvider : MainAPI() {
                         posterUrl = properUrl(img) ?: "",
                         posterHeaders = interceptor.getCookieHeaders(url).toMap()
                     )
-                } else {
-                    MovieSearchResponse(
-                        name = name,
+                    else -> MovieSearchResponse(
+                        title = name,
                         url = properUrl(href) ?: "",
                         apiName = this.name,
                         type = type,
@@ -121,7 +120,7 @@ class EkinoProvider : MainAPI() {
                 plot = plot
             )
         } else {
-            val episodes = ArrayList<Episode>()
+            val episodes = mutableListOf<Episode>()
             for (episode in episodesElements) {
                 val episodeTitle = episode.text()
                 val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(episodeTitle)
@@ -180,4 +179,50 @@ class EkinoProvider : MainAPI() {
 
 data class LinkElement(
     @JsonProperty("src") val src: String
+)
+
+// Upewnij się, że poniższe klasy są zdefiniowane w Twoim projekcie
+data class MovieSearchResponse(
+    val title: String,
+    val url: String,
+    val apiName: String,
+    val type: TvType,
+    val posterUrl: String,
+    val posterHeaders: Map<String, String>
+)
+
+data class TvSeriesSearchResponse(
+    val name: String,
+    val url: String,
+    val apiName: String,
+    val type: TvType,
+    val posterUrl: String,
+    val posterHeaders: Map<String, String>
+)
+
+data class Episode(
+    val url: String,
+    val name: String,
+    val season: Int?,
+    val episode: Int?
+)
+
+data class MovieLoadResponse(
+    val title: String,
+    val url: String,
+    val apiName: String,
+    val type: TvType,
+    val data: String,
+    val posterUrl: String,
+    val plot: String
+)
+
+data class TvSeriesLoadResponse(
+    val title: String,
+    val url: String,
+    val apiName: String,
+    val type: TvType,
+    val episodes: List<Episode>,
+    val posterUrl: String,
+    val plot: String
 )
