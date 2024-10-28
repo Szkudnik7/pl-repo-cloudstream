@@ -18,14 +18,14 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
-        val lists = document.select(".top") // Poprawiono selektor
+        val lists = document.select(".top") // Selector for categories
         val categories = ArrayList<HomePageList>()
-        
+
         for (l in lists) {
             val title = capitalizeString(l.parent()!!.select("h4").text().lowercase().trim())
-            val items = l.select(".scope_left").map { i ->
-                val a = i.parent()!!
-                val name = a.attr(".title")
+            val items = l.select(".scope_left").mapNotNull { i ->
+                val a = i.parent() ?: return@mapNotNull null
+                val name = a.attr("title") // Corrected attribute
                 val href = a.attr("href")
                 val poster = i.attr("src")
                 val year = a.select(".year").text().toIntOrNull()
@@ -42,23 +42,22 @@ open class EkinoProvider : MainAPI() {
         val lists = document.select("#advanced-search > div")
         val movies = lists[1].select("div:not(.clearfix)")
         val series = lists[3].select("div:not(.clearfix)")
-        
-        if (movies.isEmpty() && series.isEmpty()) return emptyList()
 
-        fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
-            return items.mapNotNull { i ->
-                val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val img = i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
-                val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
-                
-                if (type == TvType.TvSeries) {
-                    TvSeriesSearchResponse(name, href, this.name, type, img, null, null)
-                } else {
-                    MovieSearchResponse(name, href, this.name, type, img, null)
-                }
+        return getVideos(TvType.Movie, movies) + getVideos(TvType.TvSeries, series)
+    }
+
+    private fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
+        return items.mapNotNull { i ->
+            val href = i.selectFirst("a")?.attr("href") ?: return@mapNotNull null
+            val img = i.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
+            val name = i.selectFirst(".title")?.text() ?: return@mapNotNull null
+            
+            if (type == TvType.TvSeries) {
+                TvSeriesSearchResponse(name, href, this.name, type, img, null, null)
+            } else {
+                MovieSearchResponse(name, href, this.name, type, img, null)
             }
         }
-        return getVideos(TvType.Movie, movies) + getVideos(TvType.TvSeries, series)
     }
 
     override suspend fun load(url: String): LoadResponse {
@@ -69,17 +68,16 @@ open class EkinoProvider : MainAPI() {
             throw RuntimeException("Ta strona wydaje się być zablokowana za zaporą logowania. Nie można jej przeszukać.")
         }
 
-        var title = document.select("span[itemprop=name]").text()
+        val title = document.select("span[itemprop=name]").text().takeIf { it.isNotEmpty() } ?: "Unknown Title"
         val data = document.select("#link-list").outerHtml()
         val posterUrl = document.select("#single-poster > img").attr("src")
         val plot = document.select(".description").text()
         val episodesElements = document.select("#episode-list a[href]")
-        
+
         if (episodesElements.isEmpty()) {
             return MovieLoadResponse(title, url, name, TvType.Movie, data, posterUrl, null, plot)
         }
-        
-        title = document.selectFirst(".info")?.parent()?.select("h2")?.text() ?: title
+
         val episodes = episodesElements.mapNotNull { episode ->
             val e = episode.text()
             val regex = Regex("""\[s(\d{1,3})e(\d{1,3})]""").find(e) ?: return@mapNotNull null
@@ -117,4 +115,3 @@ open class EkinoProvider : MainAPI() {
 data class LinkElement(
     @JsonProperty("src") val src: String
 )
-
