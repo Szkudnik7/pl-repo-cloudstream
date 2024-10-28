@@ -18,7 +18,7 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
-        val lists = document.select("mostPopular") // Poprawiono selektor
+        val lists = document.select(".mostPopular") // Poprawiono selektor
         val categories = ArrayList<HomePageList>()
         
         for (l in lists) {
