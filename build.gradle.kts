@@ -81,6 +81,7 @@ subprojects {
         implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.13.1")
         implementation("org.jsoup:jsoup:1.13.1") // html parser
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4") // html parser
+        implementation("org.seleniumhq.selenium:selenium-java:4.0.0")
 
         //run JS
         implementation("org.mozilla:rhino:1.7.14")
