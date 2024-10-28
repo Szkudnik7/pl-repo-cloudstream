@@ -27,7 +27,7 @@ class CdaProvider : MainAPI() {
         val lists = document.select(".item_1")
         val categories = ArrayList<HomePageList>()
         for (l in lists) {
-            val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim())
+            val title = capitalizeString(l.parent()!!.select("h1").text().lowercase().trim())
             val items = l.select(".poster").map { i ->
                 val a = i.parent()!!
                 val name = a.attr("title")
