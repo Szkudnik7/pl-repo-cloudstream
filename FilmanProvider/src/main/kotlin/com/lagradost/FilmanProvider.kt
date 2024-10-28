@@ -20,7 +20,7 @@ class FilmanProvider : MainAPI() {
 
     // Dodaj ciasteczka sesji tutaj
     private val sessionCookies = mapOf(
-        "BKD_REMEMBER" to "ZeFmTdCLPvy8n3Dw5f2XYMNHV07pBQahKg6SzIltWUqkR1JO4xiGsub9Ecj",
+        "BKD_REMEMBER" to "4pzct8VqLB3wXAI7lWu9aNbdsMFCH6QUOYeZSEyriJf02xKG5jvRPhkng1oD",
         "PHPSESSID" to "i9ohm6a9t5p1va52sbnk52fvnd"
     )
 
