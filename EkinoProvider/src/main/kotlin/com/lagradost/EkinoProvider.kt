@@ -18,11 +18,11 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
-        val lists = document.select(".mostPopular") // Poprawiono selektor
+        val lists = document.select(".top") // Poprawiono selektor
         val categories = ArrayList<HomePageList>()
         
         for (l in lists) {
-            val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim())
+            val title = capitalizeString(l.parent()!!.select("h4").text().lowercase().trim())
             val items = l.select(".scope_left").map { i ->
                 val a = i.parent()!!
                 val name = a.attr("title")
