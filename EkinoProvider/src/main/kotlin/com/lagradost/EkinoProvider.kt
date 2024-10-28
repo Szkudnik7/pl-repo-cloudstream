@@ -12,7 +12,7 @@ import org.jsoup.select.Elements
 
 open class EkinoProvider : MainAPI() {
     override var mainUrl = "https://ekino-tv.pl/"
-    override var name = "ekinotv.pl"
+    override var name = "ekino-tv.pl"
     override var lang = "pl"
     override val hasMainPage = true
     override val usesWebView = true
@@ -23,7 +23,7 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
-        val lists = document.select("top")
+        val lists = document.select("scope_left")
         val categories = ArrayList<HomePageList>()
         for (l in lists) {
             val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim())
