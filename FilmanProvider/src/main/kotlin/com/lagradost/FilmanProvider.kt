@@ -18,8 +18,17 @@ class FilmanProvider : MainAPI() {
         TvType.TvSeries
     )
 
-    override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePageResponse {
-        val document = app.get(mainUrl).document
+    // Dodaj ciasteczka sesji tutaj
+    private val sessionCookies = mapOf(
+        "BKD_REMEMBER" to "ZeFmTdCLPvy8n3Dw5f2XYMNHV07pBQahKg6SzIltWUqkR1JO4xiGsub9Ecj",
+        "PHPSESSID" to "i9ohm6a9t5p1va52sbnk52fvnd"
+    )
+
+    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        val document = Jsoup.connect(mainUrl)
+            .cookies(sessionCookies) // Dodajemy ciasteczka sesji do żądania
+            .get()
+        
         val lists = document.select("#item-list,#series-list")
         val categories = ArrayList<HomePageList>()
         for (l in lists) {
@@ -53,18 +62,22 @@ class FilmanProvider : MainAPI() {
 
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/item?phrase=$query"
-        val document = app.get(url).document
+        val document = Jsoup.connect(url)
+            .cookies(sessionCookies) // Dodajemy ciasteczka sesji do żądania
+            .get()
+        
         val lists = document.select("#advanced-search > div")
         val movies = lists[1].select("#item-list > div:not(.clearfix)")
         val series = lists[3].select("#item-list > div:not(.clearfix)")
         if (movies.isEmpty() && series.isEmpty()) return ArrayList()
+        
         fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
             return items.mapNotNull { i ->
                 val href = i.selectFirst(".poster > a")?.attr("href") ?: return@mapNotNull null
-                val img =
-                    i.selectFirst(".poster > a > img")?.attr("src")?.replace("/thumb/", "/big/")
+                val img = i.selectFirst(".poster > a > img")?.attr("src")?.replace("/thumb/", "/big/")
                 val name = i.selectFirst(".film_title")?.text() ?: return@mapNotNull null
                 val year = i.selectFirst(".film_year")?.text()?.toIntOrNull()
+                
                 if (type === TvType.TvSeries) {
                     TvSeriesSearchResponse(
                         name,
@@ -83,10 +96,14 @@ class FilmanProvider : MainAPI() {
         return getVideos(TvType.Movie, movies) + getVideos(TvType.TvSeries, series)
     }
 
-    override suspend fun load(url: String): LoadResponse {
-        val document = app.get(url).document
-        val documentTitle = document.select("title").text().trim()
+    // Podobne zmiany można zastosować w innych metodach, gdzie wymagane są ciasteczka sesji
 
+    override suspend fun load(url: String): LoadResponse {
+        val document = Jsoup.connect(url)
+            .cookies(sessionCookies) // Dodajemy ciasteczka sesji do żądania
+            .get()
+        
+        val documentTitle = document.select("title").text().trim()
         if (documentTitle.startsWith("Logowanie")) {
             throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape it. If it is not please report it.")
         }
@@ -96,10 +113,12 @@ class FilmanProvider : MainAPI() {
         val posterUrl = document.select("#single-poster > img").attr("src")
         val year = document.select(".info > ul > li").getOrNull(1)?.text()?.toIntOrNull()
         val plot = document.select(".description").text()
+        
         val episodesElements = document.select("#episode-list a[href]")
         if (episodesElements.isEmpty()) {
             return MovieLoadResponse(title, url, name, TvType.Movie, data, posterUrl, year, plot)
         }
+        
         title = document.selectFirst(".info")?.parent()?.select("h2")?.text() ?: ""
         val episodes = episodesElements.mapNotNull { episode ->
             val e = episode.text()
@@ -123,29 +142,6 @@ class FilmanProvider : MainAPI() {
             year,
             plot
         )
-    }
-
-    override suspend fun loadLinks(
-        data: String,
-        isCasting: Boolean,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit
-    ): Boolean {
-        val document = if (data.startsWith("http"))
-            app.get(data).document.select("#links").first()
-        else Jsoup.parse(data)
-
-        document?.select(".link-to-video")?.apmap { item ->
-            val decoded = base64Decode(item.select("a").attr("data-iframe"))
-            val videoType = item.parent()?.select("td:nth-child(2)")?.text()
-            val link = tryParseJson<LinkElement>(decoded)?.src ?: return@apmap
-            loadExtractor(link, subtitleCallback) { extractedLink ->
-                run {
-                    callback(ExtractorLink(extractedLink.source, extractedLink.name + " " + videoType, extractedLink.url, extractedLink.referer, extractedLink.quality, extractedLink.isM3u8, extractedLink.headers, extractedLink.extractorData))
-                }
-            }
-        }
-        return true
     }
 }
 
