@@ -27,10 +27,10 @@ open class EkinoProvider : MainAPI() {
             val title = capitalizeString(l.parent()!!.select("h4").text().lowercase().trim())
             val items = l.select(".scope_left").map { i ->
                 val a = i.parent()!!
-                val name = a.attr("a")
+                val name = a.attr(".title")
                 val href = a.attr("href")
                 val poster = i.select("img[src]").attr("src")
-                val year = a.select(".year").text().toIntOrNull()
+                val year = a.select(".cates").text().toIntOrNull()
                 MovieSearchResponse(
                     name,
                     href,
