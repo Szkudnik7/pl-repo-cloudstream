@@ -18,28 +18,22 @@ open class EkinoProvider : MainAPI() {
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
-        val lists = document.select(".mostPopular .top .list li") // Poprawiono selektor
+        val lists = document.select(".mostPopular .top .list li")
         val categories = ArrayList<HomePageList>()
 
         for (l in lists) {
-            val title = capitalizeString(l.parent()!!.select("h4").text().lowercase().trim())
-            val items = l.select(".scope_left").map { i ->
-                val a = i.parent()!!
-                val name = a.select(".title a").text().trim() // Ulepszono selektor
+            val title = capitalizeString(l.parent()?.select("h4")?.text()?.lowercase()?.trim() ?: "")
+            val items = l.select(".scope_left").mapNotNull { i ->
+                val a = i.parent() ?: return@mapNotNull null
+                val name = a.select(".title a").text().trim()
                 val href = a.attr("href")
                 val poster = i.select("img").attr("src")
                 val year = a.select(".info-categories .cates").text().substringBefore("|").trim().toIntOrNull()
                 MovieSearchResponse(name, href, this.name, TvType.Movie, poster, year)
             }
-        categories.add(HomePageList(title, items))
-        }
-
-        return HomePageResponse(categories)
-    }
-
-            }
             categories.add(HomePageList(title, items))
         }
+
         return HomePageResponse(categories)
     }
 
@@ -47,8 +41,8 @@ open class EkinoProvider : MainAPI() {
         val url = "$mainUrl/wyszukiwarka?phrase=$query"
         val document = app.get(url).document
         val lists = document.select("#advanced-search > div")
-        val movies = lists[1].select("div:not(.clearfix)")
-        val series = lists[3].select("div:not(.clearfix)")
+        val movies = lists.getOrNull(1)?.select("div:not(.clearfix)") ?: Elements()
+        val series = lists.getOrNull(3)?.select("div:not(.clearfix)") ?: Elements()
         
         if (movies.isEmpty() && series.isEmpty()) return emptyList()
 
@@ -81,7 +75,7 @@ open class EkinoProvider : MainAPI() {
         val posterUrl = document.select("#single-poster > img").attr("src")
         val plot = document.select(".description").text()
         val episodesElements = document.select("#episode-list a[href]")
-        
+
         if (episodesElements.isEmpty()) {
             return MovieLoadResponse(title, url, name, TvType.Movie, data, posterUrl, null, plot)
         }
@@ -108,9 +102,10 @@ open class EkinoProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val document = if (data.startsWith("http"))
-            app.get(data).document.select("#link-list").first()
-        else Jsoup.parse(data)
+        val document = if (data.startsWith("http")) 
+            app.get(data).document.select("#link-list").first() 
+        else 
+            Jsoup.parse(data)
 
         document?.select(".link-to-video")?.forEach { item ->
             val decoded = base64Decode(item.select("a").attr("data-iframe"))
