@@ -25,7 +25,7 @@ open class EkinoProvider : MainAPI() {
         val categories = ArrayList<HomePageList>()
         for (l in lists) {
             val title = capitalizeString(l.parent()!!.select("h4").text().lowercase().trim())
-            val items = l.select(".poster").map { i ->
+            val items = l.select(".scope_left").map { i ->
                 val a = i.parent()!!
                 val name = a.attr("title")
                 val href = a.attr("href")
