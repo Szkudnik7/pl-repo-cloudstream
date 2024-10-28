@@ -22,38 +22,31 @@ class CdaProvider : MainAPI() {
 
     private val interceptor = CloudflareKiller()
 
-override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-    // Fetch the HTML document from the live webpage
-    val document = app.get(mainUrl, interceptor = interceptor).document
-
-    // Select the container with items from the webpage
-    val lists = document.select("div.item_1.items")
-    val categories = ArrayList<HomePageList>()
-    
-    // Iterate over the selected items to extract details
-    for (l in lists) {
-        val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim())
-        val items = l.select(".poster").map { i ->
-            val a = i.parent()!!
-            val name = a.attr(".items .item h2")
-            val href = a.attr("href")
-            val poster = i.select("img[src]").attr("src")
-            val year = a.select(".year").text().toIntOrNull()
-            
-            // Create and return movie details as per your class definitions
-            MovieSearchResponse(
-                name,
-                href,
-                this.name,
-                TvType.Movie,
-                poster,
-                year
-            )
+    override suspend fun getMainPage(page: Int, request : MainPageRequest): HomePageResponse {
+        val document = app.get(mainUrl).document
+        val lists = document.select(".item_1")
+        val categories = ArrayList<HomePageList>()
+        for (l in lists) {
+            val title = capitalizeString(l.parent()!!.select("h3").text().lowercase().trim())
+            val items = l.select(".poster").map { i ->
+                val a = i.parent()!!
+                val name = a.attr("title")
+                val href = a.attr("href")
+                val poster = i.select("img[src]").attr("src")
+                val year = a.select(".year").text().toIntOrNull()
+                MovieSearchResponse(
+                    name,
+                    href,
+                    this.name,
+                    TvType.Movie,
+                    poster,
+                    year
+                )
+            }
+            categories.add(HomePageList(title, items))
         }
-        categories.add(HomePageList(title, items))
+        return HomePageResponse(categories)
     }
-    return HomePageResponse(categories)
-}
     
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/wyszukaj?phrase=$query"
