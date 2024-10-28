@@ -28,15 +28,15 @@ open class EkinoProvider : MainAPI() {
             val items = list.select(".scope_left").mapNotNull { item ->
                 val parent = item.parent()
                 val name = parent?.selectFirst(".title")?.text() ?: return@mapNotNull null
-                val href = parent.attr("href")
-                val poster = item.selectFirst("img[src]")?.attr("src") ?: ""
+                val href = parent.selectFirst("a")?.attr("href") ?: return@mapNotNull null
+                val poster = item.selectFirst("img[src]")?.attr("src")?.let { fixUrl(it) } ?: ""
                 val year = parent.selectFirst(".cates")?.text()?.toIntOrNull()
                 MovieSearchResponse(
                     name,
                     fixUrl(href),
                     this.name,
                     TvType.Movie,
-                    fixUrl(poster),
+                    poster,
                     year
                 )
             }
@@ -49,8 +49,9 @@ open class EkinoProvider : MainAPI() {
         val url = "$mainUrl/wyszukiwarka?phrase=$query"
         val document = app.get(url).document
         val lists = document.select("#advanced-search > div")
-        val movies = lists[1].select("div:not(.clearfix)")
-        val series = lists[3].select("div:not(.clearfix)")
+        val movies = lists.getOrNull(1)?.select("div:not(.clearfix)") ?: Elements()
+        val series = lists.getOrNull(3)?.select("div:not(.clearfix)") ?: Elements()
+        
         if (movies.isEmpty() && series.isEmpty()) return ArrayList()
 
         fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
@@ -58,10 +59,11 @@ open class EkinoProvider : MainAPI() {
                 val href = item.selectFirst("a")?.attr("href") ?: return@mapNotNull null
                 val img = item.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
                 val name = item.selectFirst(".title")?.text() ?: return@mapNotNull null
+                val category = if (type == TvType.TvSeries) TvType.TvSeries else TvType.Movie
                 if (type == TvType.TvSeries) {
-                    TvSeriesSearchResponse(name, fixUrl(href), this.name, type, fixUrl(img), null, null)
+                    TvSeriesSearchResponse(name, fixUrl(href), this.name, category, fixUrl(img), null, null)
                 } else {
-                    MovieSearchResponse(name, fixUrl(href), this.name, type, fixUrl(img), null)
+                    MovieSearchResponse(name, fixUrl(href), this.name, category, fixUrl(img), null)
                 }
             }
         }
@@ -79,12 +81,12 @@ open class EkinoProvider : MainAPI() {
 
         var title = document.select("span[itemprop=name]").text()
         val data = document.select("#link-list").outerHtml()
-        val posterUrl = document.select("#single-poster > img").attr("src")
+        val posterUrl = document.select("#single-poster > img").attr("src").let { fixUrl(it) }
         val plot = document.select(".description").text()
         val episodesElements = document.select("#episode-list a[href]")
         
         if (episodesElements.isEmpty()) {
-            return MovieLoadResponse(title, url, name, TvType.Movie, data, fixUrl(posterUrl), null, plot)
+            return MovieLoadResponse(title, url, name, TvType.Movie, data, posterUrl, null, plot)
         }
 
         title = document.selectFirst(".info")?.parent()?.select("h2")?.text() ?: title
@@ -106,7 +108,7 @@ open class EkinoProvider : MainAPI() {
             name,
             TvType.TvSeries,
             episodes,
-            fixUrl(posterUrl),
+            posterUrl,
             null,
             plot
         )
