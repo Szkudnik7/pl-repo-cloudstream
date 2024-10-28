@@ -27,7 +27,7 @@ open class EkinoProvider : MainAPI() {
             val title = capitalizeString(l.parent()!!.select("h4").text().lowercase().trim())
             val items = l.select(".scope_left").map { i ->
                 val a = i.parent()!!
-                val name = document.select("div.title a")
+                val name = a.attr("a")
                 val href = a.attr("href")
                 val poster = i.select("img[src]").attr("src")
                 val year = a.select(".year").text().toIntOrNull()
