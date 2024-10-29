@@ -57,13 +57,13 @@ open class EkinoProvider : MainAPI() {
         fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
             return items.mapNotNull { item ->
                 val href = item.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val img = item.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
+                val img = item.selectFirst("a > img[src]")?.attr("src")?.let { fixUrl(it) }
                 val name = item.selectFirst(".title")?.text() ?: return@mapNotNull null
                 val category = if (type == TvType.TvSeries) TvType.TvSeries else TvType.Movie
                 if (type == TvType.TvSeries) {
-                    TvSeriesSearchResponse(name, fixUrl(href), this.name, category, fixUrl(img), null, null)
+                    TvSeriesSearchResponse(name, fixUrl(href), this.name, category, img, null, null)
                 } else {
-                    MovieSearchResponse(name, fixUrl(href), this.name, category, fixUrl(img), null)
+                    MovieSearchResponse(name, fixUrl(href), this.name, category, img, null)
                 }
             }
         }
@@ -81,8 +81,8 @@ open class EkinoProvider : MainAPI() {
 
         var title = document.select("span[itemprop=name]").text()
         val data = document.select("#link-list").outerHtml()
-        val posterUrl = document.select("#single-poster > img").attr("src").let { fixUrl(it) }
-        val plot = document.select(".movieDesc").text().trim()  // Zaktualizowany selektor dla opisu filmu
+        val posterUrl = document.select("#single-poster img[src]").attr("src").let { fixUrl(it) } // Poprawiony selektor obrazka
+        val plot = document.select(".movieDesc").text().trim()  // Poprawiony selektor dla opisu filmu
         val episodesElements = document.select("#episode-list a[href]")
         
         if (episodesElements.isEmpty()) {
