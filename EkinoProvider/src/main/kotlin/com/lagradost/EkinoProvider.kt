@@ -29,7 +29,7 @@ open class EkinoProvider : MainAPI() {
                 val parent = item.parent()
                 val name = parent?.selectFirst(".title")?.text() ?: return@mapNotNull null
                 val href = parent.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val poster = item.selectFirst("img[src]")?.attr("src")?.let { fixUrl(it) } ?: ""
+                val poster = item.selectFirst("img[src]")?.attr("src")?.let { if (it.startsWith("//")) "https:$it" else fixUrl(it) } ?: ""
                 val year = parent.selectFirst(".cates")?.text()?.toIntOrNull()
                 MovieSearchResponse(
                     name,
@@ -40,6 +40,7 @@ open class EkinoProvider : MainAPI() {
                     year
                 )
             }
+
             categories.add(HomePageList(title, items))
         }
         return HomePageResponse(categories)
