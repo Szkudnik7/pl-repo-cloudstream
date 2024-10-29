@@ -82,7 +82,7 @@ open class EkinoProvider : MainAPI() {
         var title = document.select("span[itemprop=name]").text()
         val data = document.select("#link-list").outerHtml()
         val posterUrl = document.select("#single-poster > img").attr("src").let { fixUrl(it) }
-        val plot = document.select(".descriptionMovie").text() // Zmieniono selektor na .descriptionMovie
+        val plot = document.select(".description").text()
         val episodesElements = document.select("#episode-list a[href]")
         
         if (episodesElements.isEmpty()) {
