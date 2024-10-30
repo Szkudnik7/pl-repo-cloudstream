@@ -29,7 +29,7 @@ open class EkinoProvider : MainAPI() {
                 val parent = item.parent()
                 val name = parent?.selectFirst(".title")?.text() ?: return@mapNotNull null
                 val href = parent.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val poster = item.selectFirst("img[src]")?.attr("src")?.let { fixUrl(it) } ?: ""
+                val poster = parent.selectFirst(".moviePoster")?.attr("src")?.let { fixUrl(it) } ?: ""
                 val year = parent.selectFirst(".cates")?.text()?.toIntOrNull()
                 MovieSearchResponse(
                     name,
@@ -46,19 +46,19 @@ open class EkinoProvider : MainAPI() {
     }
 
     override suspend fun search(query: String): List<SearchResponse> {
-        val url = "https://ekino-tv.pl/search/qf/?q=$query"
+        val url = "$mainUrl/wyszukiwarka?phrase=$query"
         val document = app.get(url).document
-        val lists = document.select(".col-md-12 movie-wrap")
-        val movies = lists.getOrNull(1)?.select(".col-md-6") ?: Elements()
-        val series = lists.getOrNull(3)?.select("col-md-6") ?: Elements()
+        val lists = document.select("#advanced-search > div")
+        val movies = lists.getOrNull(1)?.select("div:not(.clearfix)") ?: Elements()
+        val series = lists.getOrNull(3)?.select("div:not(.clearfix)") ?: Elements()
         
         if (movies.isEmpty() && series.isEmpty()) return ArrayList()
 
         fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
             return items.mapNotNull { item ->
                 val href = item.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val img = item.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
-                val name = parent?.selectFirst(".title")?.text() ?: return@mapNotNull null
+                val img = item.selectFirst("img.moviePoster")?.attr("src")?.replace("/thumb/", "/big/")
+                val name = item.selectFirst(".title")?.text() ?: return@mapNotNull null
                 val category = if (type == TvType.TvSeries) TvType.TvSeries else TvType.Movie
                 if (type == TvType.TvSeries) {
                     TvSeriesSearchResponse(name, fixUrl(href), this.name, category, fixUrl(img), null, null)
@@ -79,10 +79,10 @@ open class EkinoProvider : MainAPI() {
             throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape it. If it is not please report it.")
         }
 
-        var title = document.select("span[itemprop=name]").text()
+        var title = document.select("h1.title").text()
         val data = document.select("#link-list").outerHtml()
-        val posterUrl = document.select("#single-poster > img").attr("src").let { fixUrl(it) }
-        val plot = document.select(".description").text()
+        val posterUrl = document.select("img.moviePoster").attr("src").let { fixUrl(it) }
+        val plot = document.select(".descriptionMovie").text()
         val episodesElements = document.select("#episode-list a[href]")
         
         if (episodesElements.isEmpty()) {
