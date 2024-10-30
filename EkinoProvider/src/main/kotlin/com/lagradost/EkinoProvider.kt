@@ -23,7 +23,7 @@ open class EkinoProvider : MainAPI() {
 
         for (list in lists) {
             val title = "Filmy"  // Można dostosować nazwę kategorii
-            val items = list.select("li").mapNotNull { item ->  
+            val items = list.select(".list").mapNotNull { item ->  
                 val name = item.selectFirst(".title a")?.text() ?: return@mapNotNull null
                 val href = item.selectFirst(".title a")?.attr("href")?.let { fixUrl(it) } ?: return@mapNotNull null
                 val poster = item.selectFirst(".scope_left img[src]")?.attr("src")?.let { fixUrl(it) } ?: ""
