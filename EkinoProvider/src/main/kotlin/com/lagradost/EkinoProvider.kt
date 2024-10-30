@@ -30,15 +30,14 @@ open class EkinoProvider : MainAPI() {
                 val parent = item.parent()
                 val name = parent?.selectFirst(".title")?.text() ?: return@mapNotNull null
                 val href = parent.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val poster = item.selectFirst("img")?.attr("src")?.let { fixUrl(it) } ?: ""
-                val posterStyle = if (poster.isEmpty()) "https://via.placeholder.com/150/000000/FFFFFF/?text=No+Image" else poster
+                val poster = item.selectFirst("img")?.attr("src")?.let { fixUrl(it) } ?: "https://via.placeholder.com/68x90/000000/FFFFFF/?text=No+Image"
                 val year = parent.selectFirst(".cates")?.text()?.toIntOrNull()
                 MovieSearchResponse(
                     name,
                     fixUrl(href),
                     this.name,
                     TvType.Movie,
-                    posterStyle,
+                    poster,
                     year
                 )
             }
@@ -54,7 +53,7 @@ open class EkinoProvider : MainAPI() {
         val lists = document.select("#advanced-search > div")
         val movies = lists.getOrNull(1)?.select("div:not(.clearfix)") ?: Elements()
         val series = lists.getOrNull(3)?.select("div:not(.clearfix)") ?: Elements()
-        
+
         if (movies.isEmpty() && series.isEmpty()) return ArrayList()
 
         fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
@@ -78,7 +77,7 @@ open class EkinoProvider : MainAPI() {
     override suspend fun load(url: String): LoadResponse {
         val document = app.get(url).document
         val documentTitle = document.select("title").text().trim()
-        
+
         if (documentTitle.startsWith("Logowanie")) {
             throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape it. If it is not please report it.")
         }
@@ -137,11 +136,14 @@ open class EkinoProvider : MainAPI() {
         return true
     }
 
-    // Naprawianie linków do zdjęć
+    // Naprawianie linków do zdjęć z pełnym adresem URL
     private fun fixUrl(url: String?): String {
-        return if (url?.startsWith("/") == true || url?.startsWith("//") == true) {
-            mainUrl + url.removePrefix("//")
-        } else url ?: ""
+        return when {
+            url == null || url.isEmpty() -> "https://via.placeholder.com/68x90/000000/FFFFFF/?text=No+Image"
+            url.startsWith("//") -> "https:$url"
+            url.startsWith("/") -> mainUrl + url.removePrefix("/")
+            else -> url
+        }
     }
 }
 
