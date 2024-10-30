@@ -14,30 +14,30 @@ open class EkinoProvider : MainAPI() {
     override var lang = "pl"
     override val hasMainPage = true
     override val usesWebView = true
-    override val supportedTypes = setOf(TvType.TvSeries, TvType.Movie)
+    override val supportedTypes = setOf(
+        TvType.TvSeries,
+        TvType.Movie
+    )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
         val lists = document.select(".list")
         val categories = ArrayList<HomePageList>()
-
         for (list in lists) {
-            val title = "Filmy"  // Można dostosować nazwę kategorii
-            val items = list.select(".list").mapNotNull { item ->  
-                val name = item.selectFirst(".title a")?.text() ?: return@mapNotNull null
-                val href = item.selectFirst(".title a")?.attr("href")?.let { fixUrl(it) } ?: return@mapNotNull null
-                val poster = item.selectFirst(".scope_left img[src]")?.attr("src")?.let { fixUrl(it) } ?: ""
-                val year = item.selectFirst(".info-categories .cates")?.text()?.substringBefore("|")?.trim()?.toIntOrNull()
-                val plot = item.selectFirst(".movieDesc")?.text()
-
+            val title = list.parent()?.selectFirst("h4")?.text()?.capitalize() ?: "Kategoria"
+            val items = list.select(".scope_left").mapNotNull { item ->
+                val parent = item.parent()
+                val name = parent?.selectFirst(".title")?.text() ?: return@mapNotNull null
+                val href = parent.selectFirst("a")?.attr("href") ?: return@mapNotNull null
+                val poster = item.selectFirst("img[src]")?.attr("src")?.let { fixUrl(it) } ?: ""
+                val year = parent.selectFirst(".cates")?.text()?.toIntOrNull()
                 MovieSearchResponse(
                     name,
-                    href,
+                    fixUrl(href),
                     this.name,
                     TvType.Movie,
                     poster,
-                    year,
-                    plot
+                    year
                 )
             }
             categories.add(HomePageList(title, items))
@@ -52,6 +52,8 @@ open class EkinoProvider : MainAPI() {
         val movies = lists.getOrNull(1)?.select("div:not(.clearfix)") ?: Elements()
         val series = lists.getOrNull(3)?.select("div:not(.clearfix)") ?: Elements()
         
+        if (movies.isEmpty() && series.isEmpty()) return ArrayList()
+
         fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
             return items.mapNotNull { item ->
                 val href = item.selectFirst("a")?.attr("href") ?: return@mapNotNull null
@@ -74,7 +76,7 @@ open class EkinoProvider : MainAPI() {
         val documentTitle = document.select("title").text().trim()
         
         if (documentTitle.startsWith("Logowanie")) {
-            throw RuntimeException("This page seems to be locked behind a login wall.")
+            throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape it. If it is not please report it.")
         }
 
         var title = document.select("span[itemprop=name]").text()
