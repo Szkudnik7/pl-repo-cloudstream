@@ -30,14 +30,15 @@ open class EkinoProvider : MainAPI() {
                 val parent = item.parent()
                 val name = parent?.selectFirst(".title")?.text() ?: return@mapNotNull null
                 val href = parent.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val poster = item.selectFirst("img.moviePoster")?.attr("src")?.let { fixUrl(it) } ?: ""
+                val poster = item.selectFirst("img")?.attr("src")?.let { fixUrl(it) } ?: ""
+                val posterStyle = if (poster.isEmpty()) "https://via.placeholder.com/150/000000/FFFFFF/?text=No+Image" else poster
                 val year = parent.selectFirst(".cates")?.text()?.toIntOrNull()
                 MovieSearchResponse(
                     name,
                     fixUrl(href),
                     this.name,
                     TvType.Movie,
-                    poster,
+                    posterStyle,
                     year
                 )
             }
@@ -87,7 +88,7 @@ open class EkinoProvider : MainAPI() {
         val posterUrl = document.select("img.moviePoster").attr("src").let { fixUrl(it) }
         val plot = document.select(".descriptionMovie").text()
         val episodesElements = document.select("#episode-list a[href]")
-        
+
         if (episodesElements.isEmpty()) {
             return MovieLoadResponse(title, url, name, TvType.Movie, data, posterUrl, null, plot)
         }
