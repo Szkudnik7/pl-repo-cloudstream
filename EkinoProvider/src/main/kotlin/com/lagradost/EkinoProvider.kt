@@ -30,7 +30,7 @@ open class EkinoProvider : MainAPI() {
                 val parent = item.parent()
                 val name = parent?.selectFirst(".title")?.text() ?: return@mapNotNull null
                 val href = parent.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val poster = item.selectFirst("img")?.attr("src")?.let { fixUrl(it) } ?: ""
+                val poster = item.selectFirst("img.moviePoster")?.attr("src")?.let { fixUrl(it) } ?: ""
                 val year = parent.selectFirst(".cates")?.text()?.toIntOrNull()
                 MovieSearchResponse(
                     name,
