@@ -29,7 +29,7 @@ open class EkinoProvider : MainAPI() {
                 val parent = item.parent()
                 val name = parent?.selectFirst(".title")?.text() ?: return@mapNotNull null
                 val href = parent.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val poster = item.selectFirst("img[src]")?.attr("src")?.let { fixUrl(it) } ?: ""
+                val poster = parent.selectFirst(".moviePoster")?.attr("src")?.let { fixUrl(it) } ?: ""
                 val year = parent.selectFirst(".cates")?.text()?.toIntOrNull()
                 MovieSearchResponse(
                     name,
@@ -57,7 +57,7 @@ open class EkinoProvider : MainAPI() {
         fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
             return items.mapNotNull { item ->
                 val href = item.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val img = item.selectFirst("a > img[src]")?.attr("src")?.replace("/thumb/", "/big/")
+                val img = item.selectFirst("img.moviePoster")?.attr("src")?.replace("/thumb/", "/big/")
                 val name = item.selectFirst(".title")?.text() ?: return@mapNotNull null
                 val category = if (type == TvType.TvSeries) TvType.TvSeries else TvType.Movie
                 if (type == TvType.TvSeries) {
@@ -79,10 +79,10 @@ open class EkinoProvider : MainAPI() {
             throw RuntimeException("This page seems to be locked behind a login-wall on the website, unable to scrape it. If it is not please report it.")
         }
 
-        var title = document.select("span[itemprop=name]").text()
+        var title = document.select("h1.title").text()
         val data = document.select("#link-list").outerHtml()
-        val posterUrl = document.select("#single-poster > img").attr("src").let { fixUrl(it) }
-        val plot = document.select(".description").text()
+        val posterUrl = document.select("img.moviePoster").attr("src").let { fixUrl(it) }
+        val plot = document.select(".descriptionMovie").text()
         val episodesElements = document.select("#episode-list a[href]")
         
         if (episodesElements.isEmpty()) {
