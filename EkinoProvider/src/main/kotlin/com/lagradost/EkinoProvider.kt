@@ -19,31 +19,36 @@ open class EkinoProvider : MainAPI() {
         TvType.Movie
     )
 
-    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val document = app.get(mainUrl).document
-        val lists = document.select(".list")
-        val categories = ArrayList<HomePageList>()
+override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+    val document = app.get(mainUrl).document
+    val lists = document.select(".list")
+    val categories = ArrayList<HomePageList>()
+
         for (list in lists) {
             val title = list.parent()?.selectFirst("h4")?.text()?.capitalize() ?: "Kategoria"
             val items = list.select(".scope_left").mapNotNull { item ->
                 val parent = item.parent()
-                val name = parent?.selectFirst(".title")?.text() ?: return@mapNotNull null
+                val name = parent?.selectFirst(".title a")?.text() ?: return@mapNotNull null
                 val href = parent.selectFirst("a")?.attr("href") ?: return@mapNotNull null
                 val poster = item.selectFirst("img[src]")?.attr("src")?.let { fixUrl(it) } ?: ""
-                val year = parent.selectFirst(".info-categories")?.text()?.toIntOrNull()
+                val year = parent.selectFirst(".info-categories p.cates")?.text()?.substringBefore("|")?.trim()?.toIntOrNull()
+                val description = parent.selectFirst(".movieDesc")?.text()?.trim() ?: ""
+
                 MovieSearchResponse(
                     name,
                     fixUrl(href),
                     this.name,
                     TvType.Movie,
                     poster,
-                    year
+                    year,
+                    description // Zakładając, że MovieSearchResponse ma pole description
                 )
             }
             categories.add(HomePageList(title, items))
         }
         return HomePageResponse(categories)
     }
+
 
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/wyszukiwarka?phrase=$query"
