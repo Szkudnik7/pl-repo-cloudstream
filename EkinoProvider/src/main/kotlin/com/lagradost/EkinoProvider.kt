@@ -19,35 +19,33 @@ open class EkinoProvider : MainAPI() {
         TvType.Movie
     )
 
-override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-    val document = app.get(mainUrl).document
-    val lists = document.select(".list")
-    val categories = ArrayList<HomePageList>()
+    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        val document = app.get(mainUrl).document
+        val lists = document.select(".list")
+        val categories = ArrayList<HomePageList>()
 
         for (list in lists) {
             val title = list.parent()?.selectFirst("h4")?.text()?.capitalize() ?: "Kategoria"
-            val items = list.select(".scope_left").mapNotNull { item ->
-                val parent = item.parent()
-                val name = parent?.selectFirst(".title a")?.text() ?: return@mapNotNull null
+            val items = list.select("li").mapNotNull { item ->  // Zmieniamy selektor na 'li'
+                val parent = item
+                val name = parent.selectFirst(".title a")?.text() ?: return@mapNotNull null
                 val href = parent.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val poster = item.selectFirst("img[src]")?.attr("src")?.let { fixUrl(it) } ?: ""
-                val year = parent.selectFirst(".info-categories p.cates")?.text()?.substringBefore("|")?.trim()?.toIntOrNull()
-                val description = parent.selectFirst(".movieDesc")?.text()?.trim() ?: ""
-
+                val poster = parent.selectFirst(".scope_left img[src]")?.attr("src")?.let { fixUrl(it) } ?: ""
+                val year = parent.selectFirst(".info-categories")?.text()?.substringBefore("|")?.trim()?.toIntOrNull()
+                // Opis został usunięty, aby uniknąć błędów
                 MovieSearchResponse(
                     name,
                     fixUrl(href),
                     this.name,
                     TvType.Movie,
                     poster,
-                    year,
+                    year
                 )
             }
             categories.add(HomePageList(title, items))
         }
         return HomePageResponse(categories)
     }
-
 
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/wyszukiwarka?phrase=$query"
