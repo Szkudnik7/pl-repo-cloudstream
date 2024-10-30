@@ -19,6 +19,7 @@ open class EkinoProvider : MainAPI() {
         TvType.Movie
     )
 
+    // Główna strona z listą filmów i miniaturami
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val document = app.get(mainUrl).document
         val lists = document.select(".list")
@@ -29,7 +30,7 @@ open class EkinoProvider : MainAPI() {
                 val parent = item.parent()
                 val name = parent?.selectFirst(".title")?.text() ?: return@mapNotNull null
                 val href = parent.selectFirst("a")?.attr("href") ?: return@mapNotNull null
-                val poster = parent.selectFirst(".moviePoster")?.attr("src")?.let { fixUrl(it) } ?: ""
+                val poster = item.selectFirst("img")?.attr("src")?.let { fixUrl(it) } ?: ""
                 val year = parent.selectFirst(".cates")?.text()?.toIntOrNull()
                 MovieSearchResponse(
                     name,
@@ -45,6 +46,7 @@ open class EkinoProvider : MainAPI() {
         return HomePageResponse(categories)
     }
 
+    // Wyszukiwanie filmów z miniaturami i opisem
     override suspend fun search(query: String): List<SearchResponse> {
         val url = "$mainUrl/wyszukiwarka?phrase=$query"
         val document = app.get(url).document
@@ -71,6 +73,7 @@ open class EkinoProvider : MainAPI() {
         return getVideos(TvType.Movie, movies) + getVideos(TvType.TvSeries, series)
     }
 
+    // Strona szczegółów filmu lub serialu z opisem i zdjęciem
     override suspend fun load(url: String): LoadResponse {
         val document = app.get(url).document
         val documentTitle = document.select("title").text().trim()
@@ -114,6 +117,7 @@ open class EkinoProvider : MainAPI() {
         )
     }
 
+    // Pobieranie linków wideo
     override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
@@ -132,11 +136,15 @@ open class EkinoProvider : MainAPI() {
         return true
     }
 
+    // Naprawianie linków do zdjęć
     private fun fixUrl(url: String?): String {
-        return if (url?.startsWith("/") == true) mainUrl + url else url ?: ""
+        return if (url?.startsWith("/") == true || url?.startsWith("//") == true) {
+            mainUrl + url.removePrefix("//")
+        } else url ?: ""
     }
 }
 
+// Model JSON do dekodowania linków
 data class LinkElement(
     @JsonProperty("src") val src: String
 )
