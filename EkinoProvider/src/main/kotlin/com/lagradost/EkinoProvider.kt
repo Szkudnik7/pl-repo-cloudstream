@@ -41,7 +41,6 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
                     TvType.Movie,
                     poster,
                     year,
-                    description // Zakładając, że MovieSearchResponse ma pole description
                 )
             }
             categories.add(HomePageList(title, items))
