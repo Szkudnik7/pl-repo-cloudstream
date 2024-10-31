@@ -48,25 +48,29 @@ open class EkinoProvider : MainAPI() {
 
     // Wyszukiwanie filmów z miniaturami i opisem
     override suspend fun search(query: String): List<SearchResponse> {
-        val url = "$mainUrl/search/qf/?q=$query"
+        val url = "$mainUrl/wyszukiwarka?phrase=$query"
         val document = app.get(url).document
-        val movieItems = document.select(".movies-list-item")
+        val lists = document.select("#advanced-search > div")
+        val movies = lists.getOrNull(1)?.select("div:not(.clearfix)") ?: Elements()
+        val series = lists.getOrNull(3)?.select("div:not(.clearfix)") ?: Elements()
 
-        return movieItems.mapNotNull { item ->
-            val href = item.selectFirst(".title > a")?.attr("href") ?: return@mapNotNull null
-            val img = item.selectFirst(".cover-list img")?.attr("src")?.let { fixUrl(it) }
-            val name = item.selectFirst(".title > a")?.text() ?: return@mapNotNull null
-            val description = item.selectFirst(".movieDesc")?.text()
+        if (movies.isEmpty() && series.isEmpty()) return ArrayList()
 
-            MovieSearchResponse(
-                name = name,
-                url = fixUrl(href),
-                apiName = this.name,
-                type = TvType.Movie,
-                posterUrl = img,
-                plot = description
-            )
+        fun getVideos(type: TvType, items: Elements): List<SearchResponse> {
+            return items.mapNotNull { item ->
+                val href = item.selectFirst("a")?.attr("href") ?: return@mapNotNull null
+                val img = item.selectFirst("img.moviePoster")?.attr("src")?.replace("/thumb/", "/big/")
+                val name = item.selectFirst(".title")?.text() ?: return@mapNotNull null
+                val category = if (type == TvType.TvSeries) TvType.TvSeries else TvType.Movie
+                if (type == TvType.TvSeries) {
+                    TvSeriesSearchResponse(name, fixUrl(href), this.name, category, fixUrl(img), null, null)
+                } else {
+                    MovieSearchResponse(name, fixUrl(href), this.name, category, fixUrl(img), null)
+                }
+            }
         }
+
+        return getVideos(TvType.Movie, movies) + getVideos(TvType.TvSeries, series)
     }
 
     // Strona szczegółów filmu lub serialu z opisem i zdjęciem
@@ -120,8 +124,8 @@ open class EkinoProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val document = if (data.startsWith("https"))
-            app.get(data).document.selectFirst("#link-list")
+        val document = if (data.startsWith("http"))
+            app.get(data).document.selectFirst(".warning-msg-bold")
         else Jsoup.parse(data)
 
         document?.select(".buttonprch")?.forEach { item ->
