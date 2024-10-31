@@ -7,6 +7,7 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.Jsoup
 import org.jsoup.select.Elements
+import android.util.Base64
 
 open class EkinoProvider : MainAPI() {
     override var mainUrl = "https://ekino-tv.pl/"
@@ -129,7 +130,17 @@ open class EkinoProvider : MainAPI() {
         else Jsoup.parse(data)
 
         document.select(".warning-msg-bold a[href]")?.forEach { item ->
-            val link = item.attr("href") ?: return@forEach
+            val rawLink = item.attr("data-iframe") ?: item.attr("href") ?: return@forEach
+            val link = try {
+                if (rawLink.contains("base64,")) {
+                    val encoded = rawLink.substringAfter("base64,")
+                    String(Base64.decode(encoded, Base64.DEFAULT))
+                } else {
+                    rawLink
+                }
+            } catch (e: Exception) {
+                return@forEach
+            }
             loadExtractor(link, subtitleCallback, callback)
         }
         return true
