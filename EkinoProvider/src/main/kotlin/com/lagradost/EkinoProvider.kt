@@ -6,7 +6,6 @@ import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.Jsoup
-import org.jsoup.nodes.Document
 import org.jsoup.select.Elements
 
 open class EkinoProvider : MainAPI() {
@@ -125,14 +124,22 @@ open class EkinoProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val document = Jsoup.parse(data)
-        document.select("a.buttonprch")?.forEach { item ->
-            val link = item.attr("href")
-            if (link.isNotEmpty()) {
-                loadExtractor(link, subtitleCallback, callback)
-            }
+        val document = if (data.startsWith("http")) {
+            app.get(data).document
+        } else {
+            Jsoup.parse(data)
         }
-        return true
+
+        // Znajduje element linku do odtwarzacza w oparciu o klasę "buttonprch"
+        val linkElement = document.selectFirst(".buttonprch") ?: return false
+        val videoLink = linkElement.attr("href")
+
+        if (videoLink.isNotEmpty()) {
+            loadExtractor(videoLink, subtitleCallback, callback)
+            return true
+        }
+
+        return false
     }
 
     // Naprawianie linków do zdjęć z pełnym adresem URL
