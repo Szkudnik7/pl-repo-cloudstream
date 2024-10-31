@@ -125,12 +125,11 @@ open class EkinoProvider : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         val document = if (data.startsWith("http"))
-            app.get(data).document.selectFirst(".warning-msg-bold")
+            app.get(data).document
         else Jsoup.parse(data)
 
-        document?.select(".buttonprch")?.forEach { item ->
-            val decoded = base64Decode(item.selectFirst("a")?.attr("data-iframe") ?: return@forEach)
-            val link = tryParseJson<LinkElement>(decoded)?.src ?: return@forEach
+        document.select(".warning-msg-bold a[href]")?.forEach { item ->
+            val link = item.attr("href") ?: return@forEach
             loadExtractor(link, subtitleCallback, callback)
         }
         return true
