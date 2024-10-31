@@ -6,8 +6,8 @@ import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.Jsoup
+import org.jsoup.nodes.Document
 import org.jsoup.select.Elements
-import android.util.Base64
 
 open class EkinoProvider : MainAPI() {
     override var mainUrl = "https://ekino-tv.pl/"
@@ -125,23 +125,12 @@ open class EkinoProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val document = if (data.startsWith("http"))
-            app.get(data).document
-        else Jsoup.parse(data)
-
-        document.select(".warning-msg-bold a[href]")?.forEach { item ->
-            val rawLink = item.attr("data-iframe") ?: item.attr("href") ?: return@forEach
-            val link = try {
-                if (rawLink.contains("base64,")) {
-                    val encoded = rawLink.substringAfter("base64,")
-                    String(Base64.decode(encoded, Base64.DEFAULT))
-                } else {
-                    rawLink
-                }
-            } catch (e: Exception) {
-                return@forEach
+        val document = Jsoup.parse(data)
+        document.select(".warning-msg-bold a.buttonprch")?.forEach { item ->
+            val link = item.attr("href")
+            if (link.isNotEmpty()) {
+                loadExtractor(link, subtitleCallback, callback)
             }
-            loadExtractor(link, subtitleCallback, callback)
         }
         return true
     }
