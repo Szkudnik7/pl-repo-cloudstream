@@ -6,6 +6,7 @@ import com.lagradost.cloudstream3.utils.AppUtils.tryParseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.Jsoup
+import kotlinx.coroutines.delay
 import org.jsoup.select.Elements
 
 open class EkinoProvider : MainAPI() {
@@ -118,23 +119,26 @@ open class EkinoProvider : MainAPI() {
     }
 
     // Pobieranie linków wideo
-    override suspend fun loadLinks(
-        data: String,
-        isCasting: Boolean,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit
-    ): Boolean {
-        val document = if (data.startsWith("http"))
-            app.get(data).document.selectFirst("#link-list")
-        else Jsoup.parse(data)
+    override suspend fun fetchVideoLinks() {
+    // Wybierz trzeci przycisk wyboru źródła
+    document?.select("ul.players > li:nth-child(3) > a[href^='#']")?.first()?.let { sourceButton ->
+        sourceButton.click()  // Kliknięcie trzeciego przycisku źródła
 
-        document?.select(".link-to-video")?.forEach { item ->
-            val decoded = base64Decode(item.selectFirst("a")?.attr("data-iframe") ?: return@forEach)
-            val link = tryParseJson<LinkElement>(decoded)?.src ?: return@forEach
-            loadExtractor(link, subtitleCallback, callback)
+        // Znajdź i kliknij przycisk "play"
+        document?.select("a[onclick^='ShowPlayer']")?.first()?.let { playButton ->
+            playButton.click()  // Kliknięcie przycisku play
+
+            // Czekaj 3 sekundy, aby link do wideo się pojawił
+            delay(3000L)
+
+            // Pobierz finalny link do wideo
+            val finalLink = document?.select(".warning-msg .buttonprch")?.attr("href")
+            finalLink?.let { link ->
+                loadExtractor(link, subtitleCallback, callback) // Przekazanie linku do dalszego przetwarzania
+            }
         }
-        return true
     }
+}
 
     // Naprawianie linków do zdjęć z pełnym adresem URL
     private fun fixUrl(url: String?): String {
