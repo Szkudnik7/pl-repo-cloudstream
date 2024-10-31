@@ -128,7 +128,7 @@ open class EkinoProvider : MainAPI() {
             app.get(data).document.selectFirst("#link-list")
         else Jsoup.parse(data)
 
-        document?.select(".link-to-video")?.forEach { item ->
+        document?.select(".warning-msg-bold")?.forEach { item ->
             val decoded = base64Decode(item.selectFirst("a")?.attr("data-iframe") ?: return@forEach)
             val link = tryParseJson<LinkElement>(decoded)?.src ?: return@forEach
             loadExtractor(link, subtitleCallback, callback)
