@@ -120,11 +120,11 @@ open class EkinoProvider : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val document = if (data.startsWith("http"))
+        val document = if (data.startsWith("https"))
             app.get(data).document.selectFirst("#link-list")
         else Jsoup.parse(data)
 
-        document?.select(".warning-msg-bold")?.forEach { item ->
+        document?.select(".buttonprch")?.forEach { item ->
             val decoded = base64Decode(item.selectFirst("a")?.attr("data-iframe") ?: return@forEach)
             val link = tryParseJson<LinkElement>(decoded)?.src ?: return@forEach
             loadExtractor(link, subtitleCallback, callback)
