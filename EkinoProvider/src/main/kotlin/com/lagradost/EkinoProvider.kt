@@ -126,7 +126,7 @@ open class EkinoProvider : MainAPI() {
         callback: (ExtractorLink) -> Unit
     ): Boolean {
         val document = Jsoup.parse(data)
-        document.select(".warning-msg-bold a.buttonprch")?.forEach { item ->
+        document.select("a.buttonprch")?.forEach { item ->
             val link = item.attr("href")
             if (link.isNotEmpty()) {
                 loadExtractor(link, subtitleCallback, callback)
