@@ -55,5 +55,23 @@
         "internalName": "ZaluknijProvider",
         "url": "https://raw.githubusercontent.com/AuraMc-ext/Polskie-repozytorium/builds/ZaluknijProvider.cs3",
         "name": "ZaluknijProvider"
-    }
+     },
+       {
+        "iconUrl": "https://www.google.com/s2/favicons?domain=zaluknij.xyz&sz=%size%",
+        "apiVersion": 1,
+        "repositoryUrl": "https://github.com/Szkudnik7/pl-repo-cludstream",
+        "status": 1,
+        "language": "pl",
+        "authors": [
+            "Szkudnik7"
+        ],
+        "tvTypes": [
+            "Movies",
+            "TvSeries"
+        ],
+        "version": 2,
+        "internalName": "ObejrzyjToProvider",
+        "url": "https://raw.githubusercontent.com/Szkudnik7/pl-repo-cloudstream/builds/ObejrzyjToProvider.cs3",
+        "name": "ObejrzyjToProvider"
+       }
 ]
