@@ -4,6 +4,6 @@
     "description": "All polish providers.",
     "manifestVersion": 1,
     "pluginLists": [
-      "https://raw.githubusercontent.com/AuraMc-ext/Polskie-repozytorium/builds/plugins.json"
+      "https://raw.githubusercontent.com/Szkudnik7/pl-repo-cloudstream/refs/heads/builds/repo.json"
     ]
 }
